@@ -1,0 +1,20 @@
+version = 1
+revision = 3
+requires-python = ">=3.13"
+
+[[package]]
+name = "cold-call"
+version = "0.1.0"
+source = { virtual = "." }
+dependencies = [
+    { name = "pyalsaaudio" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "pyalsaaudio", specifier = ">=0.11.0" }]
+
+[[package]]
+name = "pyalsaaudio"
+version = "0.11.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/21/a6/3d833079b030d449345e35ce0e2874e330d3612135734f07b9ceace25bcf/pyalsaaudio-0.11.0.tar.gz", hash = "sha256:a78a9dca33524b2c9064b34e21f5ab874272313cf324a9a77592f396a5e0fddc", size = 311152, upload-time = "2024-05-30T21:35:57.928Z" }

@@ -1,0 +1,8 @@
+[project]
+name = "cold-call"
+version = "0.1.0"
+description = "Audio cross-route for Cold Calls art installation"
+requires-python = ">=3.13"
+dependencies = [
+    "pyalsaaudio>=0.11.0",
+]
