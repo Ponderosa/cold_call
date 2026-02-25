@@ -12,12 +12,21 @@ Usage:
     Ctrl-C to stop.
 """
 
+import atexit
+import os
 import signal
 import subprocess
 import sys
 import time
 
 import alsaaudio
+
+# Ensure child processes die when parent is killed (Linux-specific).
+# PR_SET_PDEATHSIG makes the kernel send SIGTERM to children when parent exits.
+import ctypes
+_libc = ctypes.CDLL("libc.so.6")
+def _set_pdeathsig():
+    _libc.prctl(1, signal.SIGTERM)  # PR_SET_PDEATHSIG = 1
 
 # --- Audio config ---
 RATE = 48000
@@ -98,8 +107,10 @@ def start_pipe(cap_card: int, play_card: int, label: str) -> subprocess.Popen:
         "--period-size", str(PERIOD),
     ]
 
-    rec = subprocess.Popen(arecord, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
-    play = subprocess.Popen(aplay, stdin=rec.stdout, stderr=subprocess.DEVNULL)
+    rec = subprocess.Popen(arecord, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                           preexec_fn=_set_pdeathsig)
+    play = subprocess.Popen(aplay, stdin=rec.stdout, stderr=subprocess.DEVNULL,
+                            preexec_fn=_set_pdeathsig)
     # Allow rec to receive SIGPIPE if play dies
     rec.stdout.close()
 
@@ -135,22 +146,33 @@ def main():
 
     procs = [rec_ab, play_ab, rec_ba, play_ba]
 
+    def cleanup():
+        for p in procs:
+            try:
+                p.terminate()
+            except OSError:
+                pass
+        for p in procs:
+            try:
+                p.wait(timeout=3)
+            except Exception:
+                p.kill()
+
+    atexit.register(cleanup)
+    signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
+
     print("Cross-route active. Ctrl-C to stop.\n")
 
     try:
         while True:
-            # Check if any subprocess died
-            for p in procs:
-                if p.poll() is not None:
-                    print(f"WARNING: pid {p.pid} exited with code {p.returncode}")
+            dead = [p for p in procs if p.poll() is not None]
+            for p in dead:
+                print(f"WARNING: pid {p.pid} exited with code {p.returncode}")
             time.sleep(1)
     except KeyboardInterrupt:
         print("\nStopping...")
-        for p in procs:
-            p.send_signal(signal.SIGTERM)
-        for p in procs:
-            p.wait(timeout=3)
 
+    cleanup()
     print("Done.")
 
 
