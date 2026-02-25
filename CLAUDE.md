@@ -18,7 +18,8 @@ This repo controls **one easel station** (1 Raspberry Pi 4). Same codebase deplo
 
 - Python 3.13 (system Python from Pi OS, Debian trixie)
 - uv (package management)
-- pyalsaaudio for audio cross-routing (direct ALSA, no PulseAudio)
+- arecord/aplay for audio cross-routing (subprocess pipes, pure C hot path)
+- pyalsaaudio for mixer control only (volume, sidetone, AGC)
 - gpiozero for cradle switch GPIO
 - pyserial / python-escpos for MHT-80E printers
 - pytest for testing
@@ -26,7 +27,7 @@ This repo controls **one easel station** (1 Raspberry Pi 4). Same codebase deplo
 
 ## Current Focus
 
-**Audio cross-route working.** Mic A → Earpiece B, Mic B → Earpiece A is functional via `scripts/test_crossroute.py` using pyalsaaudio with threaded read/write loops. Waiting on second POP Phone to replace the AB13X (which has flaky USB — corrupt descriptors, bus errors under load).
+**Audio cross-route working.** Mic A → Earpiece B, Mic B → Earpiece A is functional via `scripts/test_crossroute.py` using arecord|aplay subprocess pipes. Python manages device discovery, mixer levels, and subprocess lifecycle. USB-C host mode (`dtoverlay=dwc2`) gives a second independent USB controller so each handset gets its own bus. Waiting on second POP Phone to replace the Blackwire 5220 stand-in.
 
 ## Design Direction
 
@@ -63,11 +64,16 @@ cold_call/
 
 ### Audio Lessons Learned
 - PulseAudio module-loopback: POP Phone capture source stalls (latency climbs to 100s+ seconds). Not reliable.
-- Shell pipes (arecord|aplay): Two simultaneous pipes cause crackling from USB bus contention.
-- **pyalsaaudio with plughw + threads: works.** One thread per direction, blocking reads, `plughw:` for format conversion. This is the current approach.
+- pyalsaaudio with plughw + threads: intermittent stutter from Python GIL contention between two routing threads. Abandoned.
+- **arecord|aplay subprocess pipes: works.** Two simultaneous pipes, one per direction, pure C hot path. Python only manages mixer and lifecycle. This is the current approach.
+- Shell pipes previously crackled due to USB bus contention — resolved by USB-C host mode giving separate controllers.
 - AB13X USB handset is electrically flaky — causes `clear tt error -71`, corrupt descriptors, and USB disconnects under load. Do not use.
-- Both USB devices share one 480Mbps bus on the Pi 4 (VL805 controller). Full-speed (12Mbps) devices can cause contention — quality USB devices matter.
+- USB-C host mode (`dtoverlay=dwc2,dr_mode=host`) gives a second independent USB controller (DWC2 on Bus 3). Each handset on its own bus eliminates Single-TT contention.
+- Pi 4 VL805 internal hub is Single-TT — two full-speed USB audio devices on Type-A ports will stutter. Solved by splitting across VL805 + DWC2.
 - When two identical devices (e.g. two POP Phones) are used, `find_card()` will need to distinguish by USB port path, not just name.
+- ALSA mixer simple control names are short: 'PCM', 'Mic', 'Headset', 'Sidetone' — not 'PCM Playback Volume'.
+- Blackwire 5220 has hardware sidetone (mic→earpiece) — must be muted for cross-route.
+- POP Phone default playback volume is very low (30%) — set to 80%+.
 
 ### Robustness Goals
 - Each subsystem in its own thread with heartbeat
