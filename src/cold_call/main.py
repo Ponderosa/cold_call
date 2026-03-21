@@ -16,7 +16,6 @@ import sys
 from cold_call.config import load_config
 from cold_call.hardware import discover_sides, print_topology
 from cold_call.cradle import create_cradle
-from cold_call.printer import open_printer
 from cold_call.session import Session
 
 
@@ -43,13 +42,6 @@ def main():
 
     print(f"\nSide A: card {sides[0].card} ({sides[0].card_id}) + {sides[0].printer_dev}")
     print(f"Side B: card {sides[1].card} ({sides[1].card_id}) + {sides[1].printer_dev}")
-
-    # Initialize printers at startup
-    suppress = not config.printer.paper_alarm
-    for side in sides:
-        p = open_printer(side, suppress_alarm=suppress)
-        p.close()
-        print(f"  Printer {side.label} initialized{' (alarm suppressed)' if suppress else ''}")
 
     # Set up cradle detection
     use_gpio = not args.no_gpio

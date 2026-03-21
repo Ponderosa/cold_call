@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING
 from cold_call.audio import SoundPlayer, CrossRoute, setup_mixer, AUDIO_DIR
 from cold_call.config import StationConfig
 from cold_call.cradle import CradleBase
-from cold_call.printer import print_prompt, buzzer_ring
+from cold_call.printer import PrinterConnection
 from cold_call.prompts import pick_pair
 
 if TYPE_CHECKING:
@@ -35,10 +35,8 @@ class State(Enum):
     IDLE = auto()
     CALLER_PICKUP = auto()
     WAITING_FOR_ANSWER = auto()
-    CONNECTING = auto()
     CONVERSATION = auto()
     HANGUP = auto()
-    COOLDOWN = auto()
 
 
 class Session:
@@ -60,13 +58,18 @@ class Session:
         self._dispatch_count = 0
         self._running = False
 
+        # Persistent printer connections
+        self._printers: dict[str, PrinterConnection] = {
+            sides[0].label: PrinterConnection(sides[0]),
+            sides[1].label: PrinterConnection(sides[1]),
+        }
+
         # Wire up cradle callbacks
         self.cradle.on_pickup(self._handle_pickup)
         self.cradle.on_hangup(self._handle_hangup)
 
     def _handle_pickup(self, side_label: str):
         """Called when a phone is picked up."""
-        print(f"  [event] pickup {side_label}, state={self.state.name}")
         if self.state == State.IDLE:
             # First pickup — this side is the caller
             self._caller_label = side_label
@@ -75,35 +78,37 @@ class Session:
             self._receiver = next(s for s in self.sides if s.label == self._receiver_label)
             self._transition(State.CALLER_PICKUP)
         elif self.state == State.WAITING_FOR_ANSWER and side_label == self._receiver_label:
-            # Receiver picks up
-            self._transition(State.CONNECTING)
+            # Receiver picks up — go straight to conversation
+            self._transition(State.CONVERSATION)
 
     def _handle_hangup(self, side_label: str):
         """Called when a phone is hung up."""
-        print(f"  [event] hangup {side_label}, state={self.state.name}")
         if self.state in (State.CALLER_PICKUP, State.WAITING_FOR_ANSWER):
             if side_label == self._caller_label:
                 self._transition(State.HANGUP)
-        elif self.state in (State.CONNECTING, State.CONVERSATION):
+        elif self.state == State.CONVERSATION:
             self._transition(State.HANGUP)
 
     def _transition(self, new_state: State):
         self.state = new_state
         self._state_event.set()
 
-    def _caller_player(self) -> SoundPlayer:
-        return self._player_a if self._caller_label == "A" else self._player_b
-
-    def _receiver_player(self) -> SoundPlayer:
-        return self._player_b if self._caller_label == "A" else self._player_a
+    def _player_for(self, side_label: str) -> SoundPlayer:
+        return self._player_a if side_label == "A" else self._player_b
 
     def run(self):
         """Main session loop. Runs until stopped."""
         self._running = True
 
-        # Set up mixers
+        # Set up mixers and warm up printer connections
         for side in self.sides:
             setup_mixer(side)
+        for pc in self._printers.values():
+            try:
+                pc.get()
+                print(f"  Printer {pc.side.label} ({pc.side.printer_dev}) ready")
+            except Exception as e:
+                print(f"  WARNING: Printer {pc.side.label} not ready: {e}")
 
         print("\nCold Calls ready. Waiting for someone to pick up a phone...")
         print("  (Press A or B to simulate picking up / hanging up)\n")
@@ -129,7 +134,7 @@ class Session:
 
             # Dial tone
             print("  Playing dial tone...")
-            cp = self._caller_player()
+            cp = self._player_for(self._caller_label)
             cp.play(self._caller, AUDIO_DIR / "dial_tone.wav")
             if not self._wait_or_interrupted(2.5):
                 cp.stop()
@@ -149,19 +154,21 @@ class Session:
             self.state = State.WAITING_FOR_ANSWER
             self._state_event.clear()
             print(f"  Ringing Side {self._receiver_label}...")
-            cp = self._caller_player()
-            rp = self._receiver_player()
+            cp = self._player_for(self._caller_label)
+            rp = self._player_for(self._receiver_label)
             cp.play(self._caller, AUDIO_DIR / "ring_long.wav", loop=True)
             rp.play(self._receiver, AUDIO_DIR / "ring_long.wav", loop=True)
 
             # Buzzer ring on receiver's printer (in background thread)
             buzzer_thread = None
             if self.config.printer.buzzer_ring:
+                receiver_printer = self._printers[self._receiver_label]
                 def _buzz_loop():
                     while self.state == State.WAITING_FOR_ANSWER:
-                        buzzer_ring(self._receiver, cycles=1)
-                        # Gap between ring cycles (buzzer_ring does ~3s internally,
-                        # add pause between cycles)
+                        try:
+                            receiver_printer.buzzer_ring(cycles=1)
+                        except Exception:
+                            pass
                         for _ in range(20):  # 2s in 0.1s steps, checking state
                             if self.state != State.WAITING_FOR_ANSWER:
                                 return
@@ -181,21 +188,17 @@ class Session:
                 self._do_hangup()
                 continue
 
-            # --- CONNECTING ---
-            print(f"  Side {self._receiver_label} picks up!")
-            print("  Connecting call...")
-
             # --- CONVERSATION ---
-            self.state = State.CONVERSATION
+            print(f"  Side {self._receiver_label} picks up!")
             self._state_event.clear()
 
-            # Start cross-route first, then play announcement on top via dmix
+            # Start cross-route, then play announcement on top via dmix
             self._crossroute.start(self._caller, self._receiver)
             time.sleep(0.3)
 
             # Announcement on both earpieces (collect call style)
-            cp = self._caller_player()
-            rp = self._receiver_player()
+            cp = self._player_for(self._caller_label)
+            rp = self._player_for(self._receiver_label)
             cp.play(self._caller, AUDIO_DIR / "connecting.wav")
             rp.play(self._receiver, AUDIO_DIR / "connecting.wav")
             cp.wait()
@@ -208,22 +211,22 @@ class Session:
             prompt_a, prompt_b = pick_pair(self.config.theme)
             caller_prompt = prompt_a if self._caller_label == "A" else prompt_b
             receiver_prompt = prompt_b if self._caller_label == "A" else prompt_a
-            suppress = not self.config.printer.paper_alarm
 
             print(f"  Printing prompts...")
             print(f"    Side {self._caller_label}: {caller_prompt[:60]}...")
             print(f"    Side {self._receiver_label}: {receiver_prompt[:60]}...")
 
+            caller_printer = self._printers[self._caller_label]
+            receiver_printer = self._printers[self._receiver_label]
+
             t1 = threading.Thread(
-                target=print_prompt,
-                args=(self._caller, caller_prompt, self._dispatch_count),
-                kwargs={"suppress_alarm": suppress},
+                target=caller_printer.print_prompt,
+                args=(caller_prompt, self._dispatch_count),
                 daemon=True,
             )
             t2 = threading.Thread(
-                target=print_prompt,
-                args=(self._receiver, receiver_prompt, self._dispatch_count),
-                kwargs={"suppress_alarm": suppress},
+                target=receiver_printer.print_prompt,
+                args=(receiver_prompt, self._dispatch_count),
                 daemon=True,
             )
             t1.start()
@@ -271,3 +274,5 @@ class Session:
         self._crossroute.stop()
         self._player_a.stop()
         self._player_b.stop()
+        for pc in self._printers.values():
+            pc.close()

@@ -26,38 +26,72 @@ FONT_REG = str(ASSETS / "fonts" / "CourierPrime-Regular.ttf")
 FONT_BOLD = str(ASSETS / "fonts" / "CourierPrime-Bold.ttf")
 
 
-def open_printer(side: Side, suppress_alarm: bool = False) -> File:
-    """Open and initialize a printer for a side.
+class PrinterConnection:
+    """Persistent connection to one MHT-80E printer with auto-reconnect."""
 
-    Sends ESC @ to reset state. Optionally suppresses the paper-out alarm.
-    """
-    p = File(side.printer_dev)
-    p._raw(b'\x1b\x40')  # ESC @ — initialize printer, clear buffer
+    def __init__(self, side: Side):
+        self.side = side
+        self._printer: File | None = None
 
-    if suppress_alarm:
-        # ESC c 4 n — enable/disable paper end sensor
-        # n=0 disables the paper end signal, which suppresses the alarm buzzer
-        p._raw(b'\x1b\x63\x04\x00')
+    def _connect(self) -> File:
+        """Open and initialize the printer."""
+        p = File(self.side.printer_dev)
+        p._raw(b'\x1b\x40')  # ESC @ — initialize printer, clear buffer
+        return p
 
-    return p
+    def _get(self) -> File:
+        """Return an open printer, reconnecting if needed."""
+        if self._printer is None:
+            try:
+                self._printer = self._connect()
+            except (OSError, IOError) as e:
+                print(f"  WARNING: Printer {self.side.label} "
+                      f"({self.side.printer_dev}): {e}")
+                raise
+        return self._printer
 
+    def _reconnect(self) -> File:
+        """Force a reconnect."""
+        self.close()
+        return self._get()
 
-def buzzer_ring(side: Side, cycles: int = 2):
-    """Play a phone-ring pattern on the printer's buzzer.
+    def buzzer_ring(self, cycles: int = 1):
+        """Play a phone-ring pattern on the printer's buzzer."""
+        try:
+            p = self._get()
+        except (OSError, IOError):
+            return
+        for i in range(cycles):
+            p.buzzer(times=9, duration=1)
+            time.sleep(1.5)
+            p.buzzer(times=9, duration=1)
+            if i < cycles - 1:
+                time.sleep(3.0)
 
-    Two bursts per cycle with a pause between cycles, mimicking a phone ring.
-    """
-    p = File(side.printer_dev)
-    p._raw(b'\x1b\x40')
+    def print_prompt(self, prompt: str, dispatch_num: int = 0):
+        """Print a prompt dispatch."""
+        try:
+            p = self._get()
+        except (OSError, IOError):
+            try:
+                p = self._reconnect()
+            except (OSError, IOError):
+                return
 
-    for i in range(cycles):
-        p.buzzer(times=9, duration=1)  # burst 1
-        time.sleep(1.5)
-        p.buzzer(times=9, duration=1)  # burst 2
-        if i < cycles - 1:
-            time.sleep(3.0)  # pause between ring cycles
+        dispatch = _compose_dispatch(prompt, dispatch_num)
+        _print_raster_chunked(p, dispatch.rotate(180))
 
-    p.close()
+        p.ln(4)
+        p.cut()
+
+    def close(self):
+        """Close the printer connection."""
+        if self._printer is not None:
+            try:
+                self._printer.close()
+            except Exception:
+                pass
+            self._printer = None
 
 
 def _render_text(lines, font_path=FONT_REG, size=24, align="center",
@@ -175,24 +209,6 @@ def _compose_dispatch(prompt: str, dispatch_num: int = 0) -> Image.Image:
         y += section.height
 
     return composite
-
-
-def print_prompt(side: Side, prompt: str, dispatch_num: int = 0,
-                 suppress_alarm: bool = False):
-    """Print a prompt dispatch to a side's printer.
-
-    Renders the entire dispatch as one image and prints it in one operation
-    for a smooth, gapless print. Image is rotated 180° so the receipt reads
-    correctly when pulled from the printer (bottom-up print order).
-    """
-    p = open_printer(side, suppress_alarm=suppress_alarm)
-
-    dispatch = _compose_dispatch(prompt, dispatch_num)
-    _print_raster_chunked(p, dispatch.rotate(180))
-
-    p.ln(4)
-    p.cut()
-    p.close()
 
 
 def _print_raster_chunked(p: File, img: Image.Image,
