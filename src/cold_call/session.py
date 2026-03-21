@@ -100,7 +100,7 @@ class Session:
         """Main session loop. Runs until stopped."""
         self._running = True
 
-        # Set up mixers and warm up printer connections
+        # Set up mixers
         for side in self.sides:
             setup_mixer(side)
         if self.config.printer.enabled:

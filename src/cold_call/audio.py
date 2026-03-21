@@ -59,6 +59,8 @@ def setup_mixer(side: Side):
         m.setmute(0)
 
 
+
+
 class SoundPlayer:
     """Plays a WAV file to a specific side's earpiece. Non-blocking, stoppable."""
 
@@ -128,10 +130,13 @@ class CrossRoute:
         self.stop()
         self._procs = []
 
-        for cap, play, label in [
-            (side_a, side_b, "A->B"),
-            (side_b, side_a, "B->A"),
-        ]:
+        # Always create pipes in card-number order so each USB controller
+        # opens capture before playback — DWC2 crackles if reversed.
+        pairs = sorted(
+            [(side_a, side_b), (side_b, side_a)],
+            key=lambda pair: pair[0].card,
+        )
+        for cap, play in pairs:
             arecord = [
                 "arecord",
                 "-D", f"plughw:{cap.card},0",
