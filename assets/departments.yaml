@@ -1,0 +1,52 @@
+# Cold Calls — Department Reference
+# Each station runs a pair of departments (one per side).
+
+departments:
+  apathy:
+    name: Bureau of Apathy
+    form: null  # TBD
+    title: null  # TBD
+    visual: null  # TBD
+    prompt_file: apathy.txt
+
+  polite_indifference:
+    name: Department of Polite Indifference
+    form: F1
+    title: Map of Civility Through Distance
+    visual: Seattle neighborhood map
+    prompt_file: polite_indifference.txt
+
+  ambient_belonging:
+    name: Bureau of Ambient Belonging
+    form: F2
+    title: Placements of Togetherness
+    visual: Polar/radar chart
+    prompt_file: ambient_belonging.txt
+
+  acceptable_proximity:
+    name: Office of Acceptable Proximity
+    form: F3
+    title: Visualization of Proximity
+    visual: Two skeletons reaching toward each other
+    prompt_file: acceptable_proximity.txt
+
+  minimal_engagement:
+    name: Administration for Minimal Engagement
+    form: F4
+    title: Plot of Limited Participation
+    visual: Grid/graph paper
+    prompt_file: minimal_engagement.txt
+
+  conditional_invitations:
+    name: Division of Conditional Invitations
+    form: F5
+    title: Abstraction of Commitments
+    visual: Lined paper with wide rows
+    prompt_file: conditional_invitations.txt
+
+  deferred_enthusiasm:
+    name: Commission on Deferred Enthusiasm
+    form: F6
+    title: Map of Appropriate Excitement
+    visual: Four-quadrant coordinate plane
+    prompt_file: deferred_enthusiasm.txt
