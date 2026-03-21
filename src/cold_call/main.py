@@ -27,9 +27,11 @@ def main():
 
     # Load config
     config = load_config()
-    print(f"Station: {config.name} (theme: {config.theme})")
-    print(f"Printer buzzer ring: {config.printer.buzzer_ring}")
-    print(f"Paper alarm: {'enabled' if config.printer.paper_alarm else 'suppressed'}")
+    print(f"Station: {config.name}")
+    print(f"Prompts: A={config.prompts.side_a}, B={config.prompts.side_b}")
+    print(f"Background audio: {config.background_audio or 'none'}")
+    print(f"Printer: {'enabled' if config.printer.enabled else 'disabled'}, "
+          f"buzzer: {'on' if config.printer.buzzer_ring else 'off'}")
     print()
 
     # Discover hardware

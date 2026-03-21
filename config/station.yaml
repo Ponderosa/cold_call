@@ -3,7 +3,14 @@
 
 # Station identity
 name: apathy
-theme: apathy  # prompt category to use (matches filename in assets/prompts/)
+
+# Background audio played during conversations (file in assets/audio/)
+background_audio: rain_city_loop.wav
+
+# Each side prints from its own prompt list (filenames in assets/prompts/)
+prompts:
+  side_a: apathy
+  side_b: apathy
 
 # Printer settings
 printer:

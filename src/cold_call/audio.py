@@ -77,9 +77,11 @@ class SoundPlayer:
             _set_pdeathsig()
 
         if loop:
+            # Loop raw PCM: strip 44-byte WAV header, play as raw so aplay
+            # doesn't stop at the WAV-declared length
             cmd = (
-                f"while true; do cat '{path}'; done "
-                f"| aplay -D dmix:{side.card},0 -c 2 -r {RATE} -f {FORMAT} -t wav"
+                f"while true; do tail -c +45 '{path}'; done "
+                f"| aplay -D dmix:{side.card},0 -c 2 -r {RATE} -f {FORMAT} -t raw"
             )
             self._proc = subprocess.Popen(
                 cmd, shell=True, stderr=subprocess.DEVNULL,

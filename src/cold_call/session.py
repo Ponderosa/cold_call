@@ -16,7 +16,7 @@ from cold_call.audio import SoundPlayer, CrossRoute, setup_mixer, AUDIO_DIR
 from cold_call.config import StationConfig
 from cold_call.cradle import CradleBase
 from cold_call.printer import PrinterConnection
-from cold_call.prompts import pick_pair
+from cold_call.prompts import pick_one
 
 if TYPE_CHECKING:
     from cold_call.hardware import Side
@@ -53,6 +53,8 @@ class Session:
         self._receiver_label: str | None = None
         self._player_a = SoundPlayer()
         self._player_b = SoundPlayer()
+        self._music_a = SoundPlayer()
+        self._music_b = SoundPlayer()
         self._crossroute = CrossRoute()
         self._state_event = threading.Event()
         self._dispatch_count = 0
@@ -212,11 +214,20 @@ class Session:
             cp.wait()
             rp.stop()
 
+            # Background music on both earpieces (loops during conversation)
+            if self.config.background_audio:
+                bg_path = AUDIO_DIR / self.config.background_audio
+                self._music_a.play(self.sides[0], bg_path, loop=True)
+                self._music_b.play(self.sides[1], bg_path, loop=True)
+
             print("  CALL CONNECTED!")
 
-            # Print prompts (in background threads so they don't block)
+            # Print prompts — each side gets its own theme
             self._dispatch_count += 1
-            prompt_a, prompt_b = pick_pair(self.config.theme)
+            theme_a = self.config.prompts.side_a
+            theme_b = self.config.prompts.side_b
+            prompt_a = pick_one(theme_a)
+            prompt_b = pick_one(theme_b)
             caller_prompt = prompt_a if self._caller_label == "A" else prompt_b
             receiver_prompt = prompt_b if self._caller_label == "A" else prompt_a
 
@@ -250,6 +261,8 @@ class Session:
     def _do_hangup(self):
         """Clean up after a call ends."""
         print("  Hanging up...")
+        self._music_a.stop()
+        self._music_b.stop()
         self._crossroute.stop()
 
         # Play busy tone to whichever side is still off hook
@@ -280,6 +293,8 @@ class Session:
     def stop(self):
         self._running = False
         self._state_event.set()
+        self._music_a.stop()
+        self._music_b.stop()
         self._crossroute.stop()
         self._player_a.stop()
         self._player_b.stop()

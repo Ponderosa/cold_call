@@ -27,16 +27,9 @@ def load_prompts(category: str | None = None) -> list[str]:
     return prompts
 
 
-def pick_pair(category: str | None = None) -> tuple[str, str]:
-    """Pick two different prompts for a session (one per side).
-
-    Returns (prompt_a, prompt_b). If only one prompt available, both sides get it.
-    """
+def pick_one(category: str | None = None) -> str:
+    """Pick a random prompt from a category."""
     prompts = load_prompts(category)
     if not prompts:
-        return ("Talk to each other.", "Talk to each other.")
-    if len(prompts) == 1:
-        return (prompts[0], prompts[0])
-
-    pair = random.sample(prompts, 2)
-    return (pair[0], pair[1])
+        return "Talk to each other."
+    return random.choice(prompts)

@@ -11,6 +11,12 @@ CONFIG_PATH = Path(__file__).resolve().parent.parent.parent / "config" / "statio
 
 
 @dataclass
+class PromptsConfig:
+    side_a: str = "apathy"
+    side_b: str = "apathy"
+
+
+@dataclass
 class PrinterConfig:
     enabled: bool = True
     buzzer_ring: bool = True
@@ -20,7 +26,8 @@ class PrinterConfig:
 @dataclass
 class StationConfig:
     name: str = "cold_call"
-    theme: str = "apathy"
+    background_audio: str = ""
+    prompts: PromptsConfig = field(default_factory=PromptsConfig)
     printer: PrinterConfig = field(default_factory=PrinterConfig)
 
 
@@ -33,6 +40,12 @@ def load_config(path: Path | None = None) -> StationConfig:
     with open(path) as f:
         data = yaml.safe_load(f) or {}
 
+    prompts_data = data.get("prompts", {})
+    prompts = PromptsConfig(
+        side_a=prompts_data.get("side_a", "apathy"),
+        side_b=prompts_data.get("side_b", "apathy"),
+    )
+
     printer_data = data.get("printer", {})
     printer = PrinterConfig(
         enabled=printer_data.get("enabled", True),
@@ -42,6 +55,7 @@ def load_config(path: Path | None = None) -> StationConfig:
 
     return StationConfig(
         name=data.get("name", "cold_call"),
-        theme=data.get("theme", "apathy"),
+        background_audio=data.get("background_audio", ""),
+        prompts=prompts,
         printer=printer,
     )
