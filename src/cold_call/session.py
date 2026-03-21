@@ -183,16 +183,12 @@ class Session:
 
             # --- CONNECTING ---
             print(f"  Side {self._receiver_label} picks up!")
-            time.sleep(1.0)  # moment to get phone to ear
             print("  Connecting call...")
 
-            # Connecting announcement on both earpieces
+            # Connecting announcement — caller hears it immediately
             cp = self._caller_player()
-            rp = self._receiver_player()
             cp.play(self._caller, AUDIO_DIR / "connecting.wav")
-            rp.play(self._receiver, AUDIO_DIR / "connecting.wav")
             cp.wait()
-            rp.stop()
             time.sleep(0.3)
 
             # --- CONVERSATION ---
