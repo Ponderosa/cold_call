@@ -23,6 +23,12 @@ if ! grep -q '^\[all\]' "$BOOT_CONFIG" || ! sed -n '/^\[all\]/,/^\[/p' "$BOOT_CO
     echo '⚠ Added dwc2 host overlay to config.txt — reboot required'
 fi
 
+# Printer: add user to lp group for /dev/usb/lp* access
+if ! groups "$USER" | grep -q '\blp\b'; then
+    sudo usermod -aG lp "$USER"
+    echo '⚠ Added user to lp group — log out and back in for it to take effect'
+fi
+
 # uv (Python package manager) — installs to ~/.local/bin, adds to PATH via ~/.bashrc
 if ! command -v uv &>/dev/null; then
     curl -LsSf https://astral.sh/uv/install.sh | sh
