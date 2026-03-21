@@ -23,16 +23,18 @@ wheels = [
 [[package]]
 name = "cold-call"
 version = "0.1.0"
-source = { virtual = "." }
+source = { editable = "." }
 dependencies = [
     { name = "pyalsaaudio" },
     { name = "python-escpos" },
+    { name = "pyyaml" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "pyalsaaudio", specifier = ">=0.11.0" },
     { name = "python-escpos", specifier = ">=3.1" },
+    { name = "pyyaml", specifier = ">=6.0" },
 ]
 
 [[package]]

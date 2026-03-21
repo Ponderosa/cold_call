@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
-"""Cross-route two USB audio devices.
+"""Cross-route two POP Phone USB handsets.
 
 Audio hot path: arecord|aplay subprocesses (pure C, no Python in the loop).
 Python handles: device discovery, mixer setup, subprocess lifecycle.
 
-POP Phone (SYNC, stereo) <-> Blackwire 5220 (ASYNC cap mono, ADAPTIVE play stereo)
-Devices on separate USB controllers (VL805 + DWC2).
+Phones are paired with printers by USB bus via cold_call.hardware.
 
 Usage:
     uv run python scripts/test_crossroute.py
@@ -13,13 +12,12 @@ Usage:
 """
 
 import atexit
-import os
 import signal
 import subprocess
 import sys
 import time
 
-import alsaaudio
+from cold_call.hardware import discover_sides, setup_pop_phone_mixer
 
 # Ensure child processes die when parent is killed (Linux-specific).
 # PR_SET_PDEATHSIG makes the kernel send SIGTERM to children when parent exits.
@@ -34,57 +32,8 @@ PERIOD = 1024       # ~21ms
 BUFFER = 4096       # ~85ms — 4 periods of headroom
 FORMAT = "S16_LE"
 
-# Device names (substrings matched against ALSA card names)
-DEVICE_A = "POP Phone"
-DEVICE_B = "Blackwire"
 
-
-def find_card(name_fragment: str) -> int | None:
-    """Find ALSA card number by name substring."""
-    for i in range(10):
-        try:
-            name, longname = alsaaudio.card_name(i)
-            if name_fragment.lower() in name.lower() or name_fragment.lower() in longname.lower():
-                return i
-        except Exception:
-            continue
-    return None
-
-
-def setup_mixer(card: int, device_name: str):
-    """Configure mixer levels for clean cross-route."""
-    try:
-        mixers = alsaaudio.mixers(cardindex=card)
-    except Exception:
-        return
-
-    if device_name == "Blackwire":
-        if "Sidetone" in mixers:
-            m = alsaaudio.Mixer("Sidetone", cardindex=card)
-            m.setmute(1)
-            m.setvolume(0)
-            print(f"  card {card}: Sidetone muted")
-        if "Headset" in mixers:
-            m = alsaaudio.Mixer("Headset", cardindex=card)
-            m.setvolume(80)
-            print(f"  card {card}: Headset playback → 80%")
-
-    elif device_name == "POP Phone":
-        if "PCM" in mixers:
-            m = alsaaudio.Mixer("PCM", cardindex=card)
-            m.setvolume(80)
-            print(f"  card {card}: PCM playback → 80%")
-        if "Mic" in mixers:
-            m = alsaaudio.Mixer("Mic", cardindex=card)
-            m.setvolume(80)
-            print(f"  card {card}: Mic capture → 80%")
-        if "Auto Gain Control" in mixers:
-            m = alsaaudio.Mixer("Auto Gain Control", cardindex=card)
-            m.setmute(0)
-            print(f"  card {card}: AGC off")
-
-
-def start_pipe(cap_card: int, play_card: int, label: str) -> subprocess.Popen:
+def start_pipe(cap_card: int, play_card: int, label: str) -> tuple:
     """Start an arecord|aplay pipe between two ALSA devices."""
     arecord = [
         "arecord",
@@ -119,29 +68,28 @@ def start_pipe(cap_card: int, play_card: int, label: str) -> subprocess.Popen:
 
 
 def main():
-    card_a = find_card(DEVICE_A)
-    card_b = find_card(DEVICE_B)
+    sides = discover_sides()
 
-    if card_a is None:
-        sys.exit(f"ERROR: '{DEVICE_A}' not found")
-    if card_b is None:
-        sys.exit(f"ERROR: '{DEVICE_B}' not found")
+    if len(sides) < 2:
+        sys.exit(f"ERROR: Need 2 sides, found {len(sides)}")
 
-    print(f"Devices:")
-    print(f"  A: {DEVICE_A} (card {card_a})")
-    print(f"  B: {DEVICE_B} (card {card_b})")
+    a, b = sides[0], sides[1]
+
+    print(f"\nDevices:")
+    print(f"  Side A: card {a.card} ({a.card_id}) + {a.printer_dev}")
+    print(f"  Side B: card {b.card} ({b.card_id}) + {b.printer_dev}")
     print(f"  Rate: {RATE} Hz, Period: {PERIOD} ({PERIOD / RATE * 1000:.0f}ms), "
           f"Buffer: {BUFFER} ({BUFFER / RATE * 1000:.0f}ms)")
     print()
 
     print("Mixer setup:")
-    setup_mixer(card_a, DEVICE_A)
-    setup_mixer(card_b, DEVICE_B)
+    setup_pop_phone_mixer(a.card)
+    setup_pop_phone_mixer(b.card)
     print()
 
     print("Starting audio pipes:")
-    rec_ab, play_ab = start_pipe(card_a, card_b, f"{DEVICE_A} → {DEVICE_B}")
-    rec_ba, play_ba = start_pipe(card_b, card_a, f"{DEVICE_B} → {DEVICE_A}")
+    rec_ab, play_ab = start_pipe(a.card, b.card, f"Side A -> Side B")
+    rec_ba, play_ba = start_pipe(b.card, a.card, f"Side B -> Side A")
     print()
 
     procs = [rec_ab, play_ab, rec_ba, play_ba]

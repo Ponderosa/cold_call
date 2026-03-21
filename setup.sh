@@ -32,5 +32,9 @@ fi
 # uv (Python package manager) — installs to ~/.local/bin, adds to PATH via ~/.bashrc
 if ! command -v uv &>/dev/null; then
     curl -LsSf https://astral.sh/uv/install.sh | sh
-    echo 'Restart your shell or run: source ~/.bashrc'
+    export PATH="$HOME/.local/bin:$PATH"
 fi
+
+# Install Python dependencies
+cd "$(dirname "$0")"
+uv sync

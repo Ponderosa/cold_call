@@ -5,16 +5,18 @@ Prints an Office of Acceptable Proximity dispatch.
 All text rendered as images using Courier Prime for full typographic control.
 
 Usage:
-    uv run python scripts/test_printer_proximity.py
+    uv run python scripts/test_printer_proximity.py [A|B]
 """
 
+import sys
 import time
 from pathlib import Path
 
 from escpos.printer import File
 from PIL import Image, ImageDraw, ImageFont
 
-PRINTER_DEV = "/dev/usb/lp0"
+from cold_call.hardware import discover_sides
+
 PRINT_WIDTH = 576
 PAUSE = 0.6
 
@@ -220,8 +222,15 @@ def print_dispatch(p: File):
 
 
 def main():
-    print(f"Opening printer at {PRINTER_DEV}...")
-    p = File(PRINTER_DEV)
+    sides = discover_sides()
+
+    which = sys.argv[1].upper() if len(sys.argv) > 1 else "A"
+    side = next((s for s in sides if s.label == which), None)
+    if side is None:
+        sys.exit(f"ERROR: Side '{which}' not found. Available: {[s.label for s in sides]}")
+
+    print(f"Side {side.label}: printer {side.printer_dev}")
+    p = File(side.printer_dev)
 
     print("Printing Office of Acceptable Proximity dispatch...")
     print_dispatch(p)

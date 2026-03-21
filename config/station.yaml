@@ -1,0 +1,11 @@
+# Cold Calls — Station Configuration
+# Each station gets its own copy of this file.
+
+# Station identity
+name: apathy
+theme: apathy  # prompt category to use (matches filename in assets/prompts/)
+
+# Printer settings
+printer:
+  buzzer_ring: true   # use printer buzzer as part of the ring sound
+  paper_alarm: false  # suppress the loud out-of-paper alarm
