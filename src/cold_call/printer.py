@@ -18,12 +18,25 @@ from PIL import Image, ImageDraw, ImageFont
 if TYPE_CHECKING:
     from cold_call.hardware import Side
 
+import yaml
+
 PRINT_WIDTH = 576  # 80mm at 203dpi (~72mm printable)
 
 ASSETS = Path(__file__).resolve().parent.parent.parent / "assets"
-SEAL_PATH = ASSETS / "images" / "bureau_seal.png"
 FONT_REG = str(ASSETS / "fonts" / "CourierPrime-Regular.ttf")
 FONT_BOLD = str(ASSETS / "fonts" / "CourierPrime-Bold.ttf")
+
+# Load department metadata for seal/name lookup
+_DEPTS_PATH = ASSETS / "departments.yaml"
+_DEPARTMENTS: dict = {}
+if _DEPTS_PATH.exists():
+    with open(_DEPTS_PATH) as f:
+        _DEPARTMENTS = yaml.safe_load(f).get("departments", {})
+
+
+def _dept_info(theme: str) -> dict:
+    """Get department metadata by theme key."""
+    return _DEPARTMENTS.get(theme, {})
 
 
 class PrinterConnection:
@@ -68,7 +81,8 @@ class PrinterConnection:
             if i < cycles - 1:
                 time.sleep(3.0)
 
-    def print_prompt(self, prompt: str, dispatch_num: int = 0):
+    def print_prompt(self, prompt: str, theme: str = "apathy",
+                     dispatch_num: int = 0):
         """Print a prompt dispatch."""
         try:
             p = self._get()
@@ -78,7 +92,8 @@ class PrinterConnection:
             except (OSError, IOError):
                 return
 
-        dispatch = _compose_dispatch(prompt, dispatch_num)
+        dispatch = _compose_dispatch(prompt, theme=theme,
+                                     dispatch_num=dispatch_num)
         _print_raster_chunked(p, dispatch.rotate(180))
 
         p.ln(4)
@@ -143,18 +158,28 @@ def _wrap_prompt(text: str, max_chars: int = 18) -> list[str]:
     return lines
 
 
-def _compose_dispatch(prompt: str, dispatch_num: int = 0) -> Image.Image:
+def _compose_dispatch(prompt: str, theme: str = "apathy",
+                      dispatch_num: int = 0) -> Image.Image:
     """Render an entire dispatch as one tall image (bottom to top).
 
     Returns a single 1-bit image ready to print. Building it as one image
-    eliminates gaps between sections.
+    eliminates gaps between sections. Uses department metadata from the
+    theme to show the correct seal, name, and tagline.
     """
+    dept = _dept_info(theme)
+    dept_name = dept.get("name", "Bureau of Apathy")
+    tagline = dept.get("tagline", "")
+
+    # Find seal image: try theme-specific, fall back to bureau_seal
+    seal_path = ASSETS / "images" / f"{theme}_seal.png"
+    if not seal_path.exists():
+        seal_path = ASSETS / "images" / "bureau_seal.png"
+
     # Build sections top-to-bottom as they appear on the receipt
-    # (we'll flip the whole thing at the end for bottom-up printing)
     sections = []
 
     # Seal
-    seal = Image.open(SEAL_PATH).convert("1")
+    seal = Image.open(seal_path).convert("1")
     if seal.width < PRINT_WIDTH:
         centered = Image.new("1", (PRINT_WIDTH, seal.height), 1)
         centered.paste(seal, ((PRINT_WIDTH - seal.width) // 2, 0))
@@ -173,11 +198,11 @@ def _compose_dispatch(prompt: str, dispatch_num: int = 0) -> Image.Image:
 
     # Question
     question_lines = _wrap_prompt(prompt)
-    sections.append(Image.new("1", (PRINT_WIDTH, 8), 1))  # small gap
+    sections.append(Image.new("1", (PRINT_WIDTH, 8), 1))
     for line in question_lines:
         sections.append(_render_text([line], font_path=FONT_BOLD, size=32,
                                       line_spacing=2, pad_top=2, pad_bottom=2))
-    sections.append(Image.new("1", (PRINT_WIDTH, 8), 1))  # small gap
+    sections.append(Image.new("1", (PRINT_WIDTH, 8), 1))
 
     # Separator
     sections.append(_render_separator())
@@ -196,9 +221,12 @@ def _compose_dispatch(prompt: str, dispatch_num: int = 0) -> Image.Image:
 
     # Footer
     sections.append(_render_separator(char="_", count=30))
-    sections.append(_render_text(["BUREAU OF APATHY"], font_path=FONT_BOLD, size=22,
+    sections.append(_render_text([dept_name.upper()], font_path=FONT_BOLD, size=20,
                                   pad_top=12, pad_bottom=4))
-    sections.append(_render_text(['"We\'ll get to it."'], size=18, pad_bottom=16))
+    if tagline:
+        sections.append(_render_text([f'"{tagline}"'], size=16, pad_bottom=16))
+    else:
+        sections.append(Image.new("1", (PRINT_WIDTH, 16), 1))
 
     # Stitch all sections into one tall image
     total_h = sum(s.height for s in sections)

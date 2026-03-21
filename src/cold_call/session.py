@@ -236,17 +236,21 @@ class Session:
             print(f"    Side {self._receiver_label}: {receiver_prompt[:60]}...")
 
             if self.config.printer.enabled:
+                caller_theme = theme_a if self._caller_label == "A" else theme_b
+                receiver_theme = theme_b if self._caller_label == "A" else theme_a
                 caller_printer = self._printers[self._caller_label]
                 receiver_printer = self._printers[self._receiver_label]
 
                 t1 = threading.Thread(
                     target=caller_printer.print_prompt,
-                    args=(caller_prompt, self._dispatch_count),
+                    args=(caller_prompt,),
+                    kwargs={"theme": caller_theme, "dispatch_num": self._dispatch_count},
                     daemon=True,
                 )
                 t2 = threading.Thread(
                     target=receiver_printer.print_prompt,
-                    args=(receiver_prompt, self._dispatch_count),
+                    args=(receiver_prompt,),
+                    kwargs={"theme": receiver_theme, "dispatch_num": self._dispatch_count},
                     daemon=True,
                 )
                 t1.start()

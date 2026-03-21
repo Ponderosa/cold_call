@@ -4,13 +4,19 @@
 departments:
   apathy:
     name: Bureau of Apathy
-    form: null  # TBD
+    motto: Cura Differtur
+    tagline: "We'll Get to It"
+    established: 1953
+    form: null  # TBD — no designer form yet
     title: null  # TBD
     visual: null  # TBD
     prompt_file: apathy.txt
 
   polite_indifference:
     name: Department of Polite Indifference
+    motto: Humanitas Per Distantiam
+    tagline: Civility Through Distance
+    established: 1962
     form: F1
     title: Map of Civility Through Distance
     visual: Seattle neighborhood map
@@ -18,6 +24,9 @@ departments:
 
   ambient_belonging:
     name: Bureau of Ambient Belonging
+    motto: Atmosphaera Communitatis Servatur
+    tagline: Maintaining the Conditions for Togetherness
+    established: 1974
     form: F2
     title: Placements of Togetherness
     visual: Polar/radar chart
@@ -25,6 +34,9 @@ departments:
 
   acceptable_proximity:
     name: Office of Acceptable Proximity
+    motto: Spatium Rite Servatum
+    tagline: Space with Consideration
+    established: 1981
     form: F3
     title: Visualization of Proximity
     visual: Two skeletons reaching toward each other
@@ -32,6 +44,9 @@ departments:
 
   minimal_engagement:
     name: Administration for Minimal Engagement
+    motto: Participatio Moderata
+    tagline: Participation Within Limits
+    established: 1968
     form: F4
     title: Plot of Limited Participation
     visual: Grid/graph paper
@@ -39,6 +54,9 @@ departments:
 
   conditional_invitations:
     name: Division of Conditional Invitations
+    motto: Ardor Tempore Moderatur
+    tagline: Commitment Pending
+    established: 1977
     form: F5
     title: Abstraction of Commitments
     visual: Lined paper with wide rows
@@ -46,6 +64,9 @@ departments:
 
   deferred_enthusiasm:
     name: Commission on Deferred Enthusiasm
+    motto: Ardor Tempore Moderatur
+    tagline: Excitement at an Appropriate Pace
+    established: 1965
     form: F6
     title: Map of Appropriate Excitement
     visual: Four-quadrant coordinate plane
