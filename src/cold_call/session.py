@@ -77,16 +77,14 @@ class Session:
             self._caller = next(s for s in self.sides if s.label == side_label)
             self._receiver = next(s for s in self.sides if s.label == self._receiver_label)
             self._transition(State.CALLER_PICKUP)
-        elif self.state == State.WAITING_FOR_ANSWER and side_label == self._receiver_label:
-            # Receiver picks up — go straight to conversation
+        elif self.state in (State.CALLER_PICKUP, State.WAITING_FOR_ANSWER) \
+                and side_label == self._receiver_label:
+            # Receiver picks up during any pre-call phase — connect immediately
             self._transition(State.CONVERSATION)
 
     def _handle_hangup(self, side_label: str):
         """Called when a phone is hung up."""
-        if self.state in (State.CALLER_PICKUP, State.WAITING_FOR_ANSWER):
-            if side_label == self._caller_label:
-                self._transition(State.HANGUP)
-        elif self.state == State.CONVERSATION:
+        if self.state in (State.CALLER_PICKUP, State.WAITING_FOR_ANSWER, State.CONVERSATION):
             self._transition(State.HANGUP)
 
     def _transition(self, new_state: State):
@@ -135,64 +133,71 @@ class Session:
             # --- CALLER PICKUP ---
             print(f"\n--- Side {self._caller_label} picks up! ---")
 
-            # Dial tone
+            # Dial tone — interrupted by hangup or early receiver pickup
             print("  Playing dial tone...")
             cp = self._player_for(self._caller_label)
             cp.play(self._caller, AUDIO_DIR / "dial_tone.wav")
-            if not self._wait_or_interrupted(2.5):
-                cp.stop()
-                continue
+            self._wait_or_interrupted(2.5)
             cp.stop()
 
-            # DTMF dialing
-            number = random.choice(FAMOUS_NUMBERS)
-            print(f"  Dialing {number}...")
-            cp.play(self._caller, AUDIO_DIR / "dtmf_dial.wav")
-            cp.wait()
-
-            if self.state == State.HANGUP:
-                continue
-
-            # --- WAITING FOR ANSWER ---
-            self.state = State.WAITING_FOR_ANSWER
-            self._state_event.clear()
-            print(f"  Ringing Side {self._receiver_label}...")
-            cp = self._player_for(self._caller_label)
-            rp = self._player_for(self._receiver_label)
-            cp.play(self._caller, AUDIO_DIR / "ring_long.wav", loop=True)
-            rp.play(self._receiver, AUDIO_DIR / "ring_long.wav", loop=True)
-
-            # Buzzer ring on receiver's printer (in background thread)
-            buzzer_thread = None
-            if self.config.printer.buzzer_ring:
-                receiver_printer = self._printers[self._receiver_label]
-                def _buzz_loop():
-                    while self.state == State.WAITING_FOR_ANSWER:
-                        try:
-                            receiver_printer.buzzer_ring(cycles=1)
-                        except Exception:
-                            pass
-                        for _ in range(20):  # 2s in 0.1s steps, checking state
-                            if self.state != State.WAITING_FOR_ANSWER:
-                                return
-                            time.sleep(0.1)
-                buzzer_thread = threading.Thread(target=_buzz_loop, daemon=True)
-                buzzer_thread.start()
-
-            # Wait for receiver pickup or timeout
-            picked_up = self._state_event.wait(timeout=30)
-            cp.stop()
-            rp.stop()
-            if buzzer_thread:
-                buzzer_thread.join(timeout=2)
-
-            if not picked_up or self.state == State.HANGUP:
-                print("  No answer or caller hung up.")
+            if self.state == State.CONVERSATION:
+                print(f"  Side {self._receiver_label} already picked up!")
+            elif self.state == State.HANGUP:
                 self._do_hangup()
                 continue
+            else:
+                # DTMF dialing
+                number = random.choice(FAMOUS_NUMBERS)
+                print(f"  Dialing {number}...")
+                self._state_event.clear()
+                cp.play(self._caller, AUDIO_DIR / "dtmf_dial.wav")
+                cp.wait()
+
+                if self.state == State.CONVERSATION:
+                    print(f"  Side {self._receiver_label} already picked up!")
+                elif self.state == State.HANGUP:
+                    self._do_hangup()
+                    continue
+                else:
+                    # --- WAITING FOR ANSWER ---
+                    self.state = State.WAITING_FOR_ANSWER
+                    self._state_event.clear()
+                    print(f"  Ringing Side {self._receiver_label}...")
+                    cp = self._player_for(self._caller_label)
+                    rp = self._player_for(self._receiver_label)
+                    cp.play(self._caller, AUDIO_DIR / "ring_long.wav", loop=True)
+                    rp.play(self._receiver, AUDIO_DIR / "ring_long.wav", loop=True)
+
+                    # Buzzer ring on receiver's printer
+                    buzzer_thread = None
+                    if self.config.printer.buzzer_ring:
+                        receiver_printer = self._printers[self._receiver_label]
+                        def _buzz_loop():
+                            while self.state == State.WAITING_FOR_ANSWER:
+                                try:
+                                    receiver_printer.buzzer_ring(cycles=1)
+                                except Exception:
+                                    pass
+                                for _ in range(20):
+                                    if self.state != State.WAITING_FOR_ANSWER:
+                                        return
+                                    time.sleep(0.1)
+                        buzzer_thread = threading.Thread(target=_buzz_loop, daemon=True)
+                        buzzer_thread.start()
+
+                    # Wait for receiver pickup or timeout
+                    picked_up = self._state_event.wait(timeout=30)
+                    cp.stop()
+                    rp.stop()
+                    if buzzer_thread:
+                        buzzer_thread.join(timeout=2)
+
+                    if not picked_up or self.state == State.HANGUP:
+                        print("  No answer or caller hung up.")
+                        self._do_hangup()
+                        continue
 
             # --- CONVERSATION ---
-            print(f"  Side {self._receiver_label} picks up!")
             self._state_event.clear()
 
             # Start cross-route, then play announcement on top via dmix
