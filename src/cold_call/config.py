@@ -12,6 +12,7 @@ CONFIG_PATH = Path(__file__).resolve().parent.parent.parent / "config" / "statio
 
 @dataclass
 class PrinterConfig:
+    enabled: bool = True
     buzzer_ring: bool = True
     paper_alarm: bool = False
 
@@ -34,6 +35,7 @@ def load_config(path: Path | None = None) -> StationConfig:
 
     printer_data = data.get("printer", {})
     printer = PrinterConfig(
+        enabled=printer_data.get("enabled", True),
         buzzer_ring=printer_data.get("buzzer_ring", True),
         paper_alarm=printer_data.get("paper_alarm", False),
     )

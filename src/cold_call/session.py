@@ -103,12 +103,15 @@ class Session:
         # Set up mixers and warm up printer connections
         for side in self.sides:
             setup_mixer(side)
-        for pc in self._printers.values():
-            try:
-                pc.get()
-                print(f"  Printer {pc.side.label} ({pc.side.printer_dev}) ready")
-            except Exception as e:
-                print(f"  WARNING: Printer {pc.side.label} not ready: {e}")
+        if self.config.printer.enabled:
+            for pc in self._printers.values():
+                try:
+                    pc.get()
+                    print(f"  Printer {pc.side.label} ({pc.side.printer_dev}) ready")
+                except Exception as e:
+                    print(f"  WARNING: Printer {pc.side.label} not ready: {e}")
+        else:
+            print("  Printing disabled")
 
         print("\nCold Calls ready. Waiting for someone to pick up a phone...")
         print("  (Press A or B to simulate picking up / hanging up)\n")
@@ -212,25 +215,26 @@ class Session:
             caller_prompt = prompt_a if self._caller_label == "A" else prompt_b
             receiver_prompt = prompt_b if self._caller_label == "A" else prompt_a
 
-            print(f"  Printing prompts...")
+            print(f"  Prompts:")
             print(f"    Side {self._caller_label}: {caller_prompt[:60]}...")
             print(f"    Side {self._receiver_label}: {receiver_prompt[:60]}...")
 
-            caller_printer = self._printers[self._caller_label]
-            receiver_printer = self._printers[self._receiver_label]
+            if self.config.printer.enabled:
+                caller_printer = self._printers[self._caller_label]
+                receiver_printer = self._printers[self._receiver_label]
 
-            t1 = threading.Thread(
-                target=caller_printer.print_prompt,
-                args=(caller_prompt, self._dispatch_count),
-                daemon=True,
-            )
-            t2 = threading.Thread(
-                target=receiver_printer.print_prompt,
-                args=(receiver_prompt, self._dispatch_count),
-                daemon=True,
-            )
-            t1.start()
-            t2.start()
+                t1 = threading.Thread(
+                    target=caller_printer.print_prompt,
+                    args=(caller_prompt, self._dispatch_count),
+                    daemon=True,
+                )
+                t2 = threading.Thread(
+                    target=receiver_printer.print_prompt,
+                    args=(receiver_prompt, self._dispatch_count),
+                    daemon=True,
+                )
+                t1.start()
+                t2.start()
 
             # Wait for hangup
             self._state_event.wait()
