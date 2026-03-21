@@ -186,13 +186,12 @@ class Session:
             time.sleep(1.0)  # moment to get phone to ear
             print("  Connecting call...")
 
-            # Short connecting tone on both
+            # Connecting announcement on both earpieces
             cp = self._caller_player()
             rp = self._receiver_player()
-            cp.play(self._caller, AUDIO_DIR / "dial_tone.wav")
-            rp.play(self._receiver, AUDIO_DIR / "dial_tone.wav")
-            time.sleep(0.5)
-            cp.stop()
+            cp.play(self._caller, AUDIO_DIR / "connecting.wav")
+            rp.play(self._receiver, AUDIO_DIR / "connecting.wav")
+            cp.wait()
             rp.stop()
             time.sleep(0.3)
 
