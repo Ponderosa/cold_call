@@ -185,19 +185,23 @@ class Session:
             print(f"  Side {self._receiver_label} picks up!")
             print("  Connecting call...")
 
-            # Connecting announcement — caller hears it immediately
-            cp = self._caller_player()
-            cp.play(self._caller, AUDIO_DIR / "connecting.wav")
-            cp.wait()
-            time.sleep(0.3)
-
             # --- CONVERSATION ---
             self.state = State.CONVERSATION
             self._state_event.clear()
-            print("  CALL CONNECTED!")
 
-            # Start cross-route
+            # Start cross-route first, then play announcement on top via dmix
             self._crossroute.start(self._caller, self._receiver)
+            time.sleep(0.3)
+
+            # Announcement on both earpieces (collect call style)
+            cp = self._caller_player()
+            rp = self._receiver_player()
+            cp.play(self._caller, AUDIO_DIR / "connecting.wav")
+            rp.play(self._receiver, AUDIO_DIR / "connecting.wav")
+            cp.wait()
+            rp.stop()
+
+            print("  CALL CONNECTED!")
 
             # Print prompts (in background threads so they don't block)
             self._dispatch_count += 1
@@ -235,13 +239,22 @@ class Session:
         """Clean up after a call ends."""
         print("  Hanging up...")
         self._crossroute.stop()
-        self._player_a.play(self.sides[0], AUDIO_DIR / "hangup.wav")
-        self._player_b.play(self.sides[1], AUDIO_DIR / "hangup.wav")
-        time.sleep(0.5)
-        self._player_a.stop()
-        self._player_b.stop()
+
+        # Play busy tone to whichever side is still off hook
+        for side_label, player, side in [
+            ("A", self._player_a, self.sides[0]),
+            ("B", self._player_b, self.sides[1]),
+        ]:
+            if self.cradle.is_off_hook(side_label):
+                print(f"  Side {side_label} still off hook — playing busy tone")
+                player.play(side, AUDIO_DIR / "busy_tone.wav")
+            else:
+                player.stop()
+
         print("  Cooldown (5s)...")
         time.sleep(5)
+        self._player_a.stop()
+        self._player_b.stop()
         print("\nWaiting for someone to pick up a phone...")
 
     def _wait_or_interrupted(self, seconds: float) -> bool:

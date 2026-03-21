@@ -77,7 +77,7 @@ class SoundPlayer:
         if loop:
             cmd = (
                 f"while true; do cat '{path}'; done "
-                f"| aplay -D plughw:{side.card},0 -c 2 -r {RATE} -f {FORMAT} -t wav"
+                f"| aplay -D dmix:{side.card},0 -c 2 -r {RATE} -f {FORMAT} -t wav"
             )
             self._proc = subprocess.Popen(
                 cmd, shell=True, stderr=subprocess.DEVNULL,
@@ -85,7 +85,7 @@ class SoundPlayer:
             )
         else:
             self._proc = subprocess.Popen(
-                ["aplay", "-D", f"plughw:{side.card},0", path],
+                ["aplay", "-D", f"dmix:{side.card},0", path],
                 stderr=subprocess.DEVNULL,
                 preexec_fn=_preexec,
             )
@@ -140,7 +140,7 @@ class CrossRoute:
             ]
             aplay = [
                 "aplay",
-                "-D", f"plughw:{play.card},0",
+                "-D", f"dmix:{play.card},0",
                 "-c", "2", "-r", str(RATE), "-f", FORMAT, "-t", "raw",
                 "--buffer-size", str(BUFFER), "--period-size", str(PERIOD),
             ]
