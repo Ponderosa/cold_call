@@ -187,11 +187,14 @@ def _compose_dispatch(prompt: str, theme: str = "apathy",
     sections.append(seal)
 
     # Header
-    form_num = f"Form {dispatch_num:04d}" if dispatch_num else "Form 0.00"
+    form_id = dept.get("form", None)
+    if form_id:
+        form_line = f"{form_id}-{dispatch_num:04d}  |  Priority: Eventually"
+    else:
+        form_line = f"Form {dispatch_num:04d}  |  Priority: Eventually"
     sections.append(_render_text(["OFFICIAL DISPATCH"], font_path=FONT_BOLD, size=28,
                                   pad_top=16, pad_bottom=4))
-    sections.append(_render_text([f"{form_num}  |  Priority: Eventually"], size=18,
-                                  pad_bottom=12))
+    sections.append(_render_text([form_line], size=18, pad_bottom=12))
 
     # Separator
     sections.append(_render_separator())
