@@ -2,6 +2,8 @@
 # Department of Polite Indifference / Office of Acceptable Proximity
 
 name: station1
+cradle: button
+cooldown: 1.0
 background_audio: rain_city_loop.wav
 
 prompts:

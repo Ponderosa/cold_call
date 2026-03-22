@@ -46,6 +46,12 @@ if ! groups "$USER" | grep -q '\blp\b'; then
     echo '>>> Added user to lp group'
 fi
 
+# --- Input devices: add user to input group (for POP Phone HID buttons) ---
+if ! groups "$USER" | grep -q '\binput\b'; then
+    sudo usermod -aG input "$USER"
+    echo '>>> Added user to input group'
+fi
+
 # --- uv (Python package manager) ---
 if ! command -v uv &>/dev/null; then
     curl -LsSf https://astral.sh/uv/install.sh | sh

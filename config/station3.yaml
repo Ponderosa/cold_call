@@ -2,6 +2,8 @@
 # Administration for Minimal Engagement / Commission on Deferred Enthusiasm
 
 name: station3
+cradle: button
+cooldown: 1.0
 background_audio: rain_city_loop.wav
 
 prompts:

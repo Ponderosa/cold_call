@@ -2,6 +2,8 @@
 # Bureau of Ambient Belonging / Division of Conditional Invitations
 
 name: station2
+cradle: button
+cooldown: 1.0
 background_audio: rain_city_loop.wav
 
 prompts:

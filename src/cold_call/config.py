@@ -26,6 +26,8 @@ class PrinterConfig:
 @dataclass
 class StationConfig:
     name: str = "cold_call"
+    cradle: str = "gpio"
+    cooldown: float = 1.0
     background_audio: str = ""
     prompts: PromptsConfig = field(default_factory=PromptsConfig)
     printer: PrinterConfig = field(default_factory=PrinterConfig)
@@ -55,6 +57,8 @@ def load_config(path: Path | None = None) -> StationConfig:
 
     return StationConfig(
         name=data.get("name", "cold_call"),
+        cradle=data.get("cradle", "gpio"),
+        cooldown=float(data.get("cooldown", 1.0)),
         background_audio=data.get("background_audio", ""),
         prompts=prompts,
         printer=printer,

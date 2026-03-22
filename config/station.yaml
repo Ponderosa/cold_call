@@ -4,6 +4,12 @@
 # Station identity
 name: apathy
 
+# Cradle detection: "gpio" (hook switches), "button" (POP Phone HID), "keyboard" (dev)
+cradle: gpio
+
+# Seconds between calls (1s is fine for button mode, increase for GPIO)
+cooldown: 1.0
+
 # Background audio played during conversations (file in assets/audio/)
 background_audio: rain_city_loop.wav
 
