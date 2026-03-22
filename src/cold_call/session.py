@@ -201,8 +201,16 @@ class Session:
                     if buzzer_thread:
                         buzzer_thread.join(timeout=2)
 
-                    if not picked_up or self.state == State.HANGUP:
-                        print("  No answer or caller hung up.")
+                    if not picked_up:
+                        # Ring timeout — play "not in service" to caller
+                        print("  No answer — playing not-in-service message.")
+                        cp = self._player_for(self._caller_label)
+                        cp.play(self._caller, AUDIO_DIR / "not_in_service.wav")
+                        cp.wait()
+                        self._do_hangup()
+                        continue
+                    elif self.state == State.HANGUP:
+                        print("  Caller hung up during ring.")
                         self._do_hangup()
                         continue
 
