@@ -98,6 +98,58 @@ class PrinterConnection:
         p.ln(4)
         p.cut()
 
+    def print_status(self, info: dict):
+        """Print a startup status receipt."""
+        try:
+            p = self._get()
+        except (OSError, IOError):
+            return
+
+        sections = []
+
+        sections.append(_render_text(
+            ["BUREAU OF AMBIENT BELONGING"],
+            font_path=FONT_BOLD, size=20, pad_top=16, pad_bottom=4,
+        ))
+        sections.append(_render_text(
+            ["System Status Report"],
+            size=18, pad_bottom=8,
+        ))
+        sections.append(_render_separator())
+
+        # Key-value lines, left-aligned
+        kv_lines = [
+            f"Host:     {info.get('host', '?')}",
+            f"IP:       {info.get('ip', '?')}",
+            f"Uptime:   {info.get('uptime', '?')}",
+            f"Station:  {info.get('station', '?')}",
+            f"Side:     {info.get('side', '?')}",
+            f"Bus:      {info.get('bus', '?')}",
+            f"Phone:    card {info.get('card', '?')}",
+            f"Printer:  {info.get('printer_dev', '?')}",
+        ]
+        sections.append(_render_text(
+            kv_lines, size=20, align="left", line_spacing=4,
+            pad_top=8, pad_bottom=8,
+        ))
+
+        sections.append(_render_separator())
+        sections.append(_render_text(
+            ["Ready for calls."],
+            font_path=FONT_BOLD, size=22, pad_top=8, pad_bottom=16,
+        ))
+
+        total_h = sum(s.height for s in sections)
+        composite = Image.new("1", (PRINT_WIDTH, total_h), 1)
+        y = 0
+        for section in sections:
+            composite.paste(section, (0, y))
+            y += section.height
+
+        _print_raster(p, composite.rotate(180))
+        p.ln(4)
+        p.cut()
+
     def close(self):
         """Close the printer connection."""
         if self._printer is not None:

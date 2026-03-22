@@ -7,9 +7,11 @@ conversation → hangup → idle.
 from __future__ import annotations
 
 import random
+import socket
 import threading
 import time
 from enum import Enum, auto
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from cold_call.audio import SoundPlayer, CrossRoute, setup_mixer, AUDIO_DIR
@@ -109,6 +111,7 @@ class Session:
                     print(f"  Printer {pc.side.label} ({pc.side.printer_dev}) ready")
                 except Exception as e:
                     print(f"  WARNING: Printer {pc.side.label} not ready: {e}")
+            self._print_startup_status()
         else:
             print("  Printing disabled")
 
@@ -316,6 +319,41 @@ class Session:
         self._player_a.stop()
         self._player_b.stop()
         print("\nWaiting for someone to pick up a phone...")
+
+    def _print_startup_status(self):
+        """Print a status receipt on each printer at startup."""
+        uptime = "unknown"
+        try:
+            raw = Path("/proc/uptime").read_text().split()[0]
+            secs = int(float(raw))
+            mins, secs = divmod(secs, 60)
+            hours, mins = divmod(mins, 60)
+            uptime = f"{hours}h {mins}m {secs}s" if hours else f"{mins}m {secs}s"
+        except Exception:
+            pass
+
+        hostname = socket.gethostname()
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect(("8.8.8.8", 80))
+            ip = s.getsockname()[0]
+            s.close()
+        except Exception:
+            ip = "unknown"
+
+        for pc in self._printers.values():
+            side = pc.side
+            bus_name = "DWC2/USB-C" if "980000" in side.usb_bus else "VL805/Type-A"
+            pc.print_status({
+                "host": hostname,
+                "ip": ip,
+                "uptime": uptime,
+                "station": self.config.name,
+                "side": side.label,
+                "bus": bus_name,
+                "card": side.card,
+                "printer_dev": side.printer_dev,
+            })
 
     def _wait_or_interrupted(self, seconds: float) -> bool:
         """Sleep for `seconds`, but return False early if state changed to HANGUP."""
