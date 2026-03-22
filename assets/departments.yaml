@@ -6,6 +6,7 @@ departments:
     name: Bureau of Apathy
     motto: Cura Differtur
     tagline: "We'll Get to It"
+    priority: Eventually
     established: 1953
     form: null  # TBD — no designer form yet
     title: null  # TBD
@@ -16,6 +17,7 @@ departments:
     name: Department of Polite Indifference
     motto: Humanitas Per Distantiam
     tagline: Civility Through Distance
+    priority: At Your Convenience
     established: 1962
     form: F1
     title: Map of Civility Through Distance
@@ -26,6 +28,7 @@ departments:
     name: Bureau of Ambient Belonging
     motto: Atmosphaera Communitatis Servatur
     tagline: Maintaining the Conditions for Togetherness
+    priority: Whenever You're Ready
     established: 1974
     form: F2
     title: Placements of Togetherness
@@ -36,6 +39,7 @@ departments:
     name: Office of Acceptable Proximity
     motto: Spatium Rite Servatum
     tagline: Space with Consideration
+    priority: Arm's Length
     established: 1981
     form: F3
     title: Visualization of Proximity
@@ -46,6 +50,7 @@ departments:
     name: Administration for Minimal Engagement
     motto: Participatio Moderata
     tagline: Participation Within Limits
+    priority: Optional
     established: 1968
     form: F4
     title: Plot of Limited Participation
@@ -56,6 +61,7 @@ departments:
     name: Division of Conditional Invitations
     motto: Ardor Tempore Moderatur
     tagline: Commitment Pending
+    priority: Terms and Conditions Apply
     established: 1977
     form: F5
     title: Abstraction of Commitments
@@ -66,6 +72,7 @@ departments:
     name: Commission on Deferred Enthusiasm
     motto: Ardor Tempore Moderatur
     tagline: Excitement at an Appropriate Pace
+    priority: Pending Review
     established: 1965
     form: F6
     title: Map of Appropriate Excitement

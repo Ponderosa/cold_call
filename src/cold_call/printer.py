@@ -188,10 +188,11 @@ def _compose_dispatch(prompt: str, theme: str = "apathy",
 
     # Header
     form_id = dept.get("form", None)
+    priority = dept.get("priority", "Eventually")
     if form_id:
-        form_line = f"{form_id}-{dispatch_num:04d}  |  Priority: Eventually"
+        form_line = f"{form_id}-{dispatch_num:04d}  |  Priority: {priority}"
     else:
-        form_line = f"Form {dispatch_num:04d}  |  Priority: Eventually"
+        form_line = f"Form {dispatch_num:04d}  |  Priority: {priority}"
     sections.append(_render_text(["OFFICIAL DISPATCH"], font_path=FONT_BOLD, size=28,
                                   pad_top=16, pad_bottom=4))
     sections.append(_render_text([form_line], size=18, pad_bottom=12))
