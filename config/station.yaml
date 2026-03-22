@@ -14,6 +14,6 @@ prompts:
 
 # Printer settings
 printer:
-  enabled: false      # set false to disable printing (saves paper during testing)
+  enabled: true       # set false to disable printing (saves paper during testing)
   buzzer_ring: true   # use printer buzzer as part of the ring sound
   paper_alarm: false  # suppress the loud out-of-paper alarm
