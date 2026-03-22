@@ -1,0 +1,14 @@
+# Cold Calls — Station 1
+# Department of Polite Indifference / Office of Acceptable Proximity
+
+name: station1
+background_audio: rain_city_loop.wav
+
+prompts:
+  side_a: polite_indifference
+  side_b: acceptable_proximity
+
+printer:
+  enabled: true
+  buzzer_ring: true
+  paper_alarm: false

@@ -3,17 +3,19 @@
 Discovers hardware, sets up cradle detection, and runs the session loop.
 
 Usage:
-    uv run python -m cold_call.main              # With GPIO
-    uv run python -m cold_call.main --no-gpio    # Keyboard simulation
+    uv run python -m cold_call.main                          # Default config
+    uv run python -m cold_call.main --config station1.yaml   # Station 1
+    uv run python -m cold_call.main --no-gpio                # Keyboard simulation
 """
 
 from __future__ import annotations
 
 import argparse
+from pathlib import Path
 import signal
 import sys
 
-from cold_call.config import load_config
+from cold_call.config import load_config, CONFIG_PATH
 from cold_call.hardware import discover_sides, print_topology
 from cold_call.cradle import create_cradle
 from cold_call.session import Session
@@ -23,10 +25,16 @@ def main():
     parser = argparse.ArgumentParser(description="Cold Calls station controller")
     parser.add_argument("--no-gpio", action="store_true",
                         help="Simulate cradle switches with keyboard (A/B keys)")
+    parser.add_argument("--config", type=str, default=None,
+                        help="Config file name in config/ (e.g. station1.yaml)")
     args = parser.parse_args()
 
     # Load config
-    config = load_config()
+    if args.config:
+        config_path = CONFIG_PATH.parent / args.config
+    else:
+        config_path = None
+    config = load_config(config_path)
     print(f"Station: {config.name}")
     print(f"Prompts: A={config.prompts.side_a}, B={config.prompts.side_b}")
     print(f"Background audio: {config.background_audio or 'none'}")

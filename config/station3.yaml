@@ -1,0 +1,14 @@
+# Cold Calls — Station 3
+# Administration for Minimal Engagement / Commission on Deferred Enthusiasm
+
+name: station3
+background_audio: rain_city_loop.wav
+
+prompts:
+  side_a: minimal_engagement
+  side_b: deferred_enthusiasm
+
+printer:
+  enabled: true
+  buzzer_ring: true
+  paper_alarm: false

@@ -1,0 +1,14 @@
+# Cold Calls — Station 2
+# Bureau of Ambient Belonging / Division of Conditional Invitations
+
+name: station2
+background_audio: rain_city_loop.wav
+
+prompts:
+  side_a: ambient_belonging
+  side_b: conditional_invitations
+
+printer:
+  enabled: true
+  buzzer_ring: true
+  paper_alarm: false
