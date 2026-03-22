@@ -27,5 +27,8 @@ fi
 
 cd "$REPO_DIR"
 
+# Unbuffered stdout so logs show up in journalctl immediately
+export PYTHONUNBUFFERED=1
+
 echo "Starting Cold Calls station $STATION (config: $CONFIG)"
 exec "$UV" run python -m cold_call.main --config "$CONFIG"

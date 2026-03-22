@@ -106,7 +106,7 @@ class Session:
         if self.config.printer.enabled:
             for pc in self._printers.values():
                 try:
-                    pc.get()
+                    pc._get()
                     print(f"  Printer {pc.side.label} ({pc.side.printer_dev}) ready")
                 except Exception as e:
                     print(f"  WARNING: Printer {pc.side.label} not ready: {e}")
@@ -202,6 +202,11 @@ class Session:
             # --- CONVERSATION ---
             self._state_event.clear()
 
+            # Kill any leftover sound effects and let dmix fully release
+            self._player_a.stop()
+            self._player_b.stop()
+            time.sleep(0.2)
+
             # Start cross-route, then play announcement on top via dmix
             self._crossroute.start(self._caller, self._receiver)
             time.sleep(0.3)
@@ -280,8 +285,9 @@ class Session:
             else:
                 player.stop()
 
-        print("  Cooldown (5s)...")
-        time.sleep(5)
+        cooldown = self.config.cooldown
+        print(f"  Cooldown ({cooldown}s)...")
+        time.sleep(cooldown)
         self._player_a.stop()
         self._player_b.stop()
         print("\nWaiting for someone to pick up a phone...")
