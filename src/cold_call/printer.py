@@ -170,10 +170,10 @@ def _compose_dispatch(prompt: str, theme: str = "apathy",
     dept_name = dept.get("name", "Bureau of Apathy")
     tagline = dept.get("tagline", "")
 
-    # Find seal image: try theme-specific, fall back to bureau_seal
+    # Find seal image: try theme-specific, fall back to ambient_belonging
     seal_path = ASSETS / "images" / f"{theme}_seal.png"
     if not seal_path.exists():
-        seal_path = ASSETS / "images" / "bureau_seal.png"
+        seal_path = ASSETS / "images" / "ambient_belonging_seal.png"
 
     # Build sections top-to-bottom as they appear on the receipt
     sections = []

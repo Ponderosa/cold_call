@@ -82,7 +82,7 @@ class SoundPlayer:
             # doesn't stop at the WAV-declared length
             cmd = (
                 f"while true; do tail -c +45 '{path}'; done "
-                f"| aplay -D dmix:{side.card},0 -c 2 -r {RATE} -f {FORMAT} -t raw"
+                f"| aplay -D plughw:{side.card},0 -c 2 -r {RATE} -f {FORMAT} -t raw"
                 f" --buffer-size {BUFFER} --period-size {PERIOD}"
             )
             self._proc = subprocess.Popen(
@@ -91,7 +91,7 @@ class SoundPlayer:
             )
         else:
             self._proc = subprocess.Popen(
-                ["aplay", "-D", f"dmix:{side.card},0",
+                ["aplay", "-D", f"plughw:{side.card},0",
                  "--buffer-size", str(BUFFER), "--period-size", str(PERIOD),
                  path],
                 stderr=subprocess.DEVNULL,

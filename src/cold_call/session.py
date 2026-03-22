@@ -57,6 +57,7 @@ class Session:
         self._state_event = threading.Event()
         self._dispatch_count = 0
         self._running = False
+        self._print_threads: list[threading.Thread] = []
 
         # Persistent printer connections
         self._printers: dict[str, PrinterConnection] = {
@@ -114,6 +115,14 @@ class Session:
         print("\nCold Calls ready. Waiting for someone to pick up a phone...")
         print("  (Press A or B to simulate picking up / hanging up)\n")
 
+        try:
+            self._run_loop()
+        finally:
+            self._crossroute.stop()
+            self._player_a.stop()
+            self._player_b.stop()
+
+    def _run_loop(self):
         while self._running:
             self.state = State.IDLE
             self._caller = None
@@ -200,30 +209,14 @@ class Session:
             # --- CONVERSATION ---
             self._state_event.clear()
 
-            # Kill any leftover sound effects and let dmix fully release
+            # Kill any leftover sound effects
             self._player_a.stop()
             self._player_b.stop()
             time.sleep(0.2)
 
-            # Announcement on both earpieces, then cross-route
-            # (playing announcement during cross-route causes DWC2 crackle)
-            cp = self._player_for(self._caller_label)
-            rp = self._player_for(self._receiver_label)
-            cp.play(self._caller, AUDIO_DIR / "connecting.wav")
-            rp.play(self._receiver, AUDIO_DIR / "connecting.wav")
-            cp.wait()
-            rp.stop()
-            time.sleep(0.2)
-
-            # Start cross-route after announcement finishes
-            # Background music is mixed into the pipeline (no dmix)
-            bg_path = AUDIO_DIR / self.config.background_audio if self.config.background_audio else None
-            self._crossroute.start(self._caller, self._receiver,
-                                   music_path=bg_path)
-
-            print("  CALL CONNECTED!")
-
-            # Print prompts — each side gets its own theme
+            # Print prompts while announcement plays — gives DWC2 side
+            # printer time to finish before cross-route starts competing
+            # for USB bandwidth on the same bus
             self._dispatch_count += 1
             theme_a = self.config.prompts.side_a
             theme_b = self.config.prompts.side_b
@@ -237,6 +230,11 @@ class Session:
             print(f"    Side {self._receiver_label}: {receiver_prompt[:60]}...")
 
             if self.config.printer.enabled:
+                # Wait for any leftover print jobs from a previous call
+                for t in self._print_threads:
+                    t.join(timeout=30)
+                self._print_threads.clear()
+
                 caller_theme = theme_a if self._caller_label == "A" else theme_b
                 receiver_theme = theme_b if self._caller_label == "A" else theme_a
                 caller_printer = self._printers[self._caller_label]
@@ -256,6 +254,24 @@ class Session:
                 )
                 t1.start()
                 t2.start()
+                self._print_threads = [t1, t2]
+
+            # Announcement on both earpieces while printers run
+            cp = self._player_for(self._caller_label)
+            rp = self._player_for(self._receiver_label)
+            cp.play(self._caller, AUDIO_DIR / "connecting.wav")
+            rp.play(self._receiver, AUDIO_DIR / "connecting.wav")
+            cp.wait()
+            rp.stop()
+            time.sleep(0.2)
+
+            # Start cross-route after announcement finishes
+            # Background music is mixed into the pipeline (no dmix)
+            bg_path = AUDIO_DIR / self.config.background_audio if self.config.background_audio else None
+            self._crossroute.start(self._caller, self._receiver,
+                                   music_path=bg_path)
+
+            print("  CALL CONNECTED!")
 
             # Wait for hangup
             self._state_event.wait()
@@ -305,5 +321,8 @@ class Session:
         self._crossroute.stop()
         self._player_a.stop()
         self._player_b.stop()
+        for t in self._print_threads:
+            t.join(timeout=10)
+        self._print_threads.clear()
         for pc in self._printers.values():
             pc.close()

@@ -11,6 +11,7 @@ Group=design_nerd
 SupplementaryGroups=audio gpio input lp
 
 WorkingDirectory=/home/design_nerd/workspace/cold_call
+ExecStartPre=+/bin/sh -c 'echo performance | tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor'
 ExecStart=/home/design_nerd/workspace/cold_call/systemd/run-station.sh
 
 Restart=always

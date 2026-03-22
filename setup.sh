@@ -19,7 +19,7 @@ REPO_DIR="$(cd "$(dirname "$0")" && pwd)"
 sudo apt update
 sudo apt install -y build-essential
 sudo apt install -y git python3-pip python3-venv python3-dev libffi-dev
-sudo apt install -y pulseaudio pulseaudio-utils alsa-utils libasound2-dev
+sudo apt install -y alsa-utils libasound2-dev
 
 # CPU governor: prevent latency spikes during audio IRQ handling
 if command -v cpufreq-set &>/dev/null; then
@@ -52,6 +52,18 @@ if ! groups "$USER" | grep -q '\binput\b'; then
     echo '>>> Added user to input group'
 fi
 
+# --- Audio group (for direct ALSA access) ---
+if ! groups "$USER" | grep -q '\baudio\b'; then
+    sudo usermod -aG audio "$USER"
+    echo '>>> Added user to audio group'
+fi
+
+# --- GPIO group (for cradle switch access) ---
+if ! groups "$USER" | grep -q '\bgpio\b'; then
+    sudo usermod -aG gpio "$USER" 2>/dev/null || true
+    echo '>>> Added user to gpio group'
+fi
+
 # --- uv (Python package manager) ---
 if ! command -v uv &>/dev/null; then
     curl -LsSf https://astral.sh/uv/install.sh | sh
@@ -62,21 +74,20 @@ fi
 cd "$REPO_DIR"
 uv sync
 
-# --- Disable PulseAudio ---
+# --- Disable PulseAudio (if installed) ---
 # PulseAudio grabs ALSA devices exclusively, blocking our direct
-# arecord/aplay access via plughw and dmix.
-
-# Mask systemd user units (prevents socket activation and manual start)
-systemctl --user stop pulseaudio.service pulseaudio.socket 2>/dev/null || true
-systemctl --user disable pulseaudio.service pulseaudio.socket 2>/dev/null || true
-systemctl --user mask pulseaudio.service pulseaudio.socket
-echo '>>> PulseAudio masked'
-
-# Disable client-side autospawn (belt-and-suspenders)
-PULSE_CLIENT_CONF="/etc/pulse/client.conf"
-if ! grep -q '^autospawn = no' "$PULSE_CLIENT_CONF" 2>/dev/null; then
-    echo 'autospawn = no' | sudo tee -a "$PULSE_CLIENT_CONF" >/dev/null
-    echo '>>> Disabled PulseAudio autospawn'
+# arecord/aplay access via plughw. Not present on Lite images.
+if command -v pulseaudio &>/dev/null; then
+    systemctl --user stop pulseaudio.service pulseaudio.socket 2>/dev/null || true
+    systemctl --user disable pulseaudio.service pulseaudio.socket 2>/dev/null || true
+    systemctl --user mask pulseaudio.service pulseaudio.socket
+    PULSE_CLIENT_CONF="/etc/pulse/client.conf"
+    if ! grep -q '^autospawn = no' "$PULSE_CLIENT_CONF" 2>/dev/null; then
+        echo 'autospawn = no' | sudo tee -a "$PULSE_CLIENT_CONF" >/dev/null
+    fi
+    echo '>>> PulseAudio disabled'
+else
+    echo '>>> PulseAudio not installed (OK for Lite)'
 fi
 
 # --- Persist station identity ---
