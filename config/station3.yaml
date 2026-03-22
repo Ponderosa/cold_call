@@ -1,5 +1,5 @@
 # Cold Calls — Station 3
-# Administration for Minimal Engagement / Commission on Deferred Enthusiasm
+# Department of Polite Indifference / Division of Conditional Invitations
 
 name: station3
 cradle: button
@@ -7,8 +7,8 @@ cooldown: 1.0
 background_audio: rain_city_loop.wav
 
 prompts:
-  side_a: minimal_engagement
-  side_b: deferred_enthusiasm
+  side_a: polite_indifference
+  side_b: conditional_invitations
 
 printer:
   enabled: true

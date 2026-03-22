@@ -1,5 +1,5 @@
 # Cold Calls — Station 2
-# Bureau of Ambient Belonging / Division of Conditional Invitations
+# Office of Acceptable Proximity / Bureau of Ambient Belonging
 
 name: station2
 cradle: button
@@ -7,8 +7,8 @@ cooldown: 1.0
 background_audio: rain_city_loop.wav
 
 prompts:
-  side_a: ambient_belonging
-  side_b: conditional_invitations
+  side_a: acceptable_proximity
+  side_b: ambient_belonging
 
 printer:
   enabled: true

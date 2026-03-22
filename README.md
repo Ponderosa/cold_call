@@ -8,9 +8,9 @@ Two strangers pick up surreal phone handsets on opposite sides of an easel and t
 
 | Station | Hostname | Config | Departments |
 |---------|----------|--------|-------------|
-| 1 | coldcall1 | station1.yaml | Polite Indifference / Acceptable Proximity |
-| 2 | coldcall2 | station2.yaml | Ambient Belonging / Conditional Invitations |
-| 3 | coldcall3 | station3.yaml | Deferred Enthusiasm / Minimal Engagement |
+| 1 | coldcall1 | station1.yaml | Minimal Engagement / Deferred Enthusiasm |
+| 2 | coldcall2 | station2.yaml | Acceptable Proximity / Ambient Belonging |
+| 3 | coldcall3 | station3.yaml | Polite Indifference / Conditional Invitations |
 
 ## Hardware (per station)
 

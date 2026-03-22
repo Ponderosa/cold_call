@@ -1,5 +1,5 @@
 # Cold Calls — Station 1
-# Department of Polite Indifference / Office of Acceptable Proximity
+# Administration for Minimal Engagement / Commission on Deferred Enthusiasm
 
 name: station1
 cradle: button
@@ -7,8 +7,8 @@ cooldown: 1.0
 background_audio: rain_city_loop.wav
 
 prompts:
-  side_a: polite_indifference
-  side_b: acceptable_proximity
+  side_a: minimal_engagement
+  side_b: deferred_enthusiasm
 
 printer:
   enabled: true
