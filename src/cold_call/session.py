@@ -214,9 +214,7 @@ class Session:
             self._player_b.stop()
             time.sleep(0.2)
 
-            # Print prompts while announcement plays — gives DWC2 side
-            # printer time to finish before cross-route starts competing
-            # for USB bandwidth on the same bus
+            # Print prompts first — DWC2 bus has no audio contention yet
             self._dispatch_count += 1
             theme_a = self.config.prompts.side_a
             theme_b = self.config.prompts.side_b
@@ -256,7 +254,12 @@ class Session:
                 t2.start()
                 self._print_threads = [t1, t2]
 
-            # Announcement on both earpieces while printers run
+                # Wait for printing to finish before any audio starts
+                for t in self._print_threads:
+                    t.join(timeout=15)
+                self._print_threads.clear()
+
+            # Announcement on both earpieces after printing
             cp = self._player_for(self._caller_label)
             rp = self._player_for(self._receiver_label)
             cp.play(self._caller, AUDIO_DIR / "connecting.wav")
@@ -266,7 +269,6 @@ class Session:
             time.sleep(0.2)
 
             # Start cross-route after announcement finishes
-            # Background music is mixed into the pipeline (no dmix)
             bg_path = AUDIO_DIR / self.config.background_audio if self.config.background_audio else None
             self._crossroute.start(self._caller, self._receiver,
                                    music_path=bg_path)
