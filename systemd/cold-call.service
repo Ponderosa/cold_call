@@ -1,0 +1,30 @@
+[Unit]
+Description=Cold Calls art installation
+After=sound.target
+After=systemd-udev-settle.service
+Wants=systemd-udev-settle.service
+
+[Service]
+Type=simple
+User=design_nerd
+Group=design_nerd
+SupplementaryGroups=audio gpio lp
+
+WorkingDirectory=/home/design_nerd/workspace/cold_call
+ExecStart=/home/design_nerd/workspace/cold_call/systemd/run-station.sh
+
+Restart=always
+RestartSec=5
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=cold-call
+
+Environment=PULSE_SERVER=none
+Environment=HOME=/home/design_nerd
+
+KillMode=mixed
+TimeoutStopSec=15
+
+[Install]
+WantedBy=multi-user.target

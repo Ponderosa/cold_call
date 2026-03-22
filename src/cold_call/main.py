@@ -25,6 +25,8 @@ def main():
     parser = argparse.ArgumentParser(description="Cold Calls station controller")
     parser.add_argument("--no-gpio", action="store_true",
                         help="Simulate cradle switches with keyboard (A/B keys)")
+    parser.add_argument("--demo", action="store_true",
+                        help="Auto-cycle sessions for headless testing without GPIO")
     parser.add_argument("--config", type=str, default=None,
                         help="Config file name in config/ (e.g. station1.yaml)")
     args = parser.parse_args()
@@ -54,9 +56,11 @@ def main():
     print(f"Side B: card {sides[1].card} ({sides[1].card_id}) + {sides[1].printer_dev}")
 
     # Set up cradle detection
-    use_gpio = not args.no_gpio
-    cradle = create_cradle(use_gpio=use_gpio)
-    if not use_gpio:
+    use_gpio = not args.no_gpio and not args.demo
+    cradle = create_cradle(use_gpio=use_gpio, demo=args.demo)
+    if args.demo:
+        print("\n** Demo mode — auto-cycling sessions **")
+    elif not use_gpio:
         print("\n** GPIO disabled — press A or B to toggle phone hook state **")
 
     cradle.start()

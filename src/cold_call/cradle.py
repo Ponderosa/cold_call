@@ -142,8 +142,77 @@ class GPIOCradle(CradleBase):
         self._buttons.clear()
 
 
-def create_cradle(use_gpio: bool = True) -> CradleBase:
+class DemoCradle(CradleBase):
+    """Auto-cycles through sessions for headless testing without GPIO."""
+
+    def __init__(self, call_duration: float = 30.0, pause_between: float = 10.0,
+                 pickup_delay: float = 5.0):
+        super().__init__()
+        self._call_duration = call_duration
+        self._pause_between = pause_between
+        self._pickup_delay = pickup_delay
+        self._running = False
+        self._thread: threading.Thread | None = None
+
+    def start(self):
+        self._running = True
+        self._thread = threading.Thread(target=self._demo_loop, daemon=True)
+        self._thread.start()
+
+    def _demo_loop(self):
+        import time
+        while self._running:
+            # Side A picks up
+            time.sleep(2)
+            if not self._running:
+                return
+            print("  [demo] Side A picks up")
+            self._off_hook["A"] = True
+            if self._on_pickup:
+                self._on_pickup("A")
+
+            # Side B picks up after delay
+            time.sleep(self._pickup_delay)
+            if not self._running:
+                return
+            print("  [demo] Side B picks up")
+            self._off_hook["B"] = True
+            if self._on_pickup:
+                self._on_pickup("B")
+
+            # Conversation
+            time.sleep(self._call_duration)
+            if not self._running:
+                return
+
+            # Side A hangs up
+            print("  [demo] Side A hangs up")
+            self._off_hook["A"] = False
+            if self._on_hangup:
+                self._on_hangup("A")
+
+            # Side B hangs up shortly after
+            time.sleep(3)
+            if not self._running:
+                return
+            print("  [demo] Side B hangs up")
+            self._off_hook["B"] = False
+            if self._on_hangup:
+                self._on_hangup("B")
+
+            # Pause before next cycle
+            time.sleep(self._pause_between)
+
+    def stop(self):
+        self._running = False
+        if self._thread:
+            self._thread.join(timeout=2)
+
+
+def create_cradle(use_gpio: bool = True, demo: bool = False) -> CradleBase:
     """Factory: create the appropriate cradle implementation."""
+    if demo:
+        return DemoCradle()
     if use_gpio:
         return GPIOCradle()
     return KeyboardCradle()
