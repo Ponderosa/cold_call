@@ -12,7 +12,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from escpos.printer import File
-from escpos.image import EscposImage
 from PIL import Image, ImageDraw, ImageFont
 
 if TYPE_CHECKING:
@@ -244,9 +243,17 @@ def _compose_dispatch(prompt: str, theme: str = "apathy",
 
 
 def _print_raster(p: File, img: Image.Image):
-    """Send a raster image as a single GS v 0 command."""
-    ei = EscposImage(img)
-    raster_data = ei.to_raster_format()
+    """Send a raster image as a single GS v 0 command.
+
+    Builds raster data directly from the 1-bit PIL image, bypassing
+    EscposImage (which needlessly round-trips through RGBA/L/invert).
+    PIL mode "1": 0=black, 1=white. ESC/POS raster: 1=black, 0=white.
+    So we invert the packed bytes.
+    """
+    if img.mode != "1":
+        img = img.convert("1")
+    raw = img.tobytes()
+    raster_data = bytes(b ^ 0xFF for b in raw)
     width_bytes = img.width // 8
     height = img.height
 
