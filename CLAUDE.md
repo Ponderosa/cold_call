@@ -4,7 +4,7 @@
 
 **Cold Calls** is a participatory art installation for SAM Remix 2026 by Seattle Design Nerds. Two strangers pick up surreal phone handsets on opposite sides of an easel and talk to each other. Thermal receipt printers prompt them with conversation topics. They "record" responses with stamps, stickers, and tape — no writing utensils. It's framed as an outreach effort from the fictional *Bureau of Ambient Belonging*.
 
-This repo controls **one easel station** (1 Raspberry Pi 4). Same codebase deploys to all four stations.
+This repo controls **one easel station** (1 Raspberry Pi 4). Same codebase deploys to all three stations.
 
 ## Hardware (per station)
 
@@ -27,7 +27,7 @@ This repo controls **one easel station** (1 Raspberry Pi 4). Same codebase deplo
 
 ## Current Focus
 
-**Building the main program.** Hardware foundation is solid: both POP Phones cross-route cleanly via arecord|aplay subprocess pipes, both MHT-80E printers print dispatches, and hardware discovery auto-pairs phones and printers by USB bus. Now building the session state machine, cradle detection, audio playback (dial tone, ring, DTMF, announcements), prompt engine, and background music.
+**Hardening and multi-station deployment.** The core session loop is working end-to-end: hardware discovery, cradle detection (button mode via POP Phone HID), full audio flow (dial tone → DTMF → ring → connecting announcement → cross-route with background music → busy tone), prompt printing via thermal receipts, and ring timeout with not-in-service message. Station 1 (apathy) is the test station. Now deploying to stations 2 and 3.
 
 ## Project Structure
 
@@ -43,16 +43,18 @@ cold_call/
 │   ├── hardware.py       # USB device discovery, phone+printer pairing
 │   ├── session.py        # Session state machine
 │   ├── audio.py          # Audio cross-route, sound playback, background music
-│   ├── cradle.py         # GPIO cradle switch detection
-│   ├── printer.py        # Receipt printing (prompt dispatches)
+│   ├── cradle.py         # Cradle switch detection (GPIO, button, keyboard)
+│   ├── config.py         # Station config loader (YAML)
+│   ├── printer.py        # Receipt printing (prompt dispatches, status receipts)
 │   └── prompts.py        # Prompt selection and categories
+├── config/               # Per-station YAML configs (station1.yaml, etc.)
 ├── scripts/              # Manual test scripts
 ├── assets/
 │   ├── fonts/            # Courier Prime (regular + bold)
 │   ├── images/           # Generated seal PNGs for receipts
 │   ├── audio/            # Sound effects (dial tone, ring, DTMF, announcements)
 │   └── prompts/          # Prompt text files by category
-├── systemd/              # Service files for boot (TODO)
+├── systemd/              # systemd service + launcher scripts
 └── tests/                # pytest tests (TODO)
 ```
 
@@ -150,16 +152,18 @@ For development without hook switches connected. Keyboard input simulates cradle
 - python-escpos `File` backend writes to `/dev/usb/lp*`
 - User must be in `lp` group for access (setup.sh handles this)
 
-### Prompt Categories
-| Category | Tone |
+### Prompt Categories (Departments)
+| Category | Department |
 |---|---|
-| icebreakers | Warm, easy |
-| seattle | Local, knowing |
-| silly | Absurd, playful |
-| deep | Reflective |
-| bureaucratic | Deadpan official |
+| apathy | Bureau of Apathy (test only) |
+| ambient_belonging | Bureau of Ambient Belonging |
+| acceptable_proximity | Dept of Acceptable Proximity |
+| conditional_invitations | Division of Conditional Invitations |
+| deferred_enthusiasm | Office of Deferred Enthusiasm |
+| minimal_engagement | Bureau of Minimal Engagement |
+| polite_indifference | Agency of Polite Indifference |
 
-Stored as plain text files, one question per line.
+Stored as plain text files in `assets/prompts/`, one question per line. Each department has a matching seal image in `assets/images/` and metadata in `assets/departments.yaml`.
 
 ## Hardware Discovery
 
@@ -189,12 +193,14 @@ Run `uv run python -m cold_call.hardware` to see current topology.
 ## Dev Workflow
 
 ```bash
-./setup.sh            # First time: system deps, uv, USB-C host mode
+./setup.sh 1          # First time: system deps, uv, USB-C host mode (station 1-3)
 uv sync               # Install Python dependencies
 uv run pytest         # Run tests
 uv run python -m cold_call.hardware   # Check device topology
 uv run python scripts/test_crossroute.py   # Test audio cross-route
 uv run python scripts/test_printer.py A    # Test printer on side A or B
+sudo systemctl status cold-call           # Check service status
+sudo journalctl -u cold-call -f           # Follow logs
 ```
 
 ## Principles

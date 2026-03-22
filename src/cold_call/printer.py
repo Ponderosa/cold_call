@@ -91,8 +91,8 @@ class PrinterConnection:
             except (OSError, IOError):
                 return
 
-        dispatch, seal_height = _compose_dispatch(prompt, theme=theme,
-                                                   dispatch_num=dispatch_num)
+        dispatch = _compose_dispatch(prompt, theme=theme,
+                                     dispatch_num=dispatch_num)
         _print_raster(p, dispatch.rotate(180))
 
         p.ln(4)
@@ -291,7 +291,7 @@ def _compose_dispatch(prompt: str, theme: str = "apathy",
         composite.paste(section, (0, y))
         y += section.height
 
-    return composite, seal.height
+    return composite
 
 
 def _print_raster(p: File, img: Image.Image):
