@@ -133,7 +133,8 @@ Use `aplay` to play WAV files to specific ALSA devices (`plughw:N,0`). Sound eff
 ### Cradle Switch Wiring
 - Mechanical switch: one terminal → GPIO pin (BCM 17 / BCM 27), other → GND
 - gpiozero.Button with internal pull-up + 50ms software debounce
-- On-hook = switch closed = LOW, Off-hook = switch open = HIGH
+- Off-hook = switch closed = LOW, On-hook = switch open = HIGH
+- 3-terminal hook switch: wire the normally-open (NO) pair so circuit closes when phone lifts
 
 ### `--no-gpio` Mode
 For development without hook switches connected. Keyboard input simulates cradle events:

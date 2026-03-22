@@ -23,9 +23,9 @@ from cold_call.session import Session
 
 def main():
     parser = argparse.ArgumentParser(description="Cold Calls station controller")
-    parser.add_argument("--cradle", type=str, default="gpio",
+    parser.add_argument("--cradle", type=str, default=None,
                         choices=["gpio", "keyboard", "button"],
-                        help="Cradle detection mode (default: gpio)")
+                        help="Cradle detection mode (default: from config)")
     parser.add_argument("--no-gpio", action="store_true",
                         help="(deprecated) Alias for --cradle keyboard")
     parser.add_argument("--demo", action="store_true",
@@ -64,7 +64,7 @@ def main():
         cradle_mode = "demo"
     elif args.no_gpio:
         cradle_mode = "keyboard"
-    elif args.cradle != "gpio":
+    elif args.cradle is not None:
         cradle_mode = args.cradle
     else:
         cradle_mode = config.cradle

@@ -121,12 +121,12 @@ class GPIOCradle(CradleBase):
 
         for side, pin in self.PINS.items():
             btn = Button(pin, pull_up=True, bounce_time=0.05)
-            # On-hook = pressed (switch closed = LOW), Off-hook = released (switch open = HIGH)
-            btn.when_released = lambda s=side: self._pickup(s)
-            btn.when_pressed = lambda s=side: self._hangup(s)
+            # Off-hook = pressed (switch closed = LOW), On-hook = released (switch open = HIGH)
+            btn.when_pressed = lambda s=side: self._pickup(s)
+            btn.when_released = lambda s=side: self._hangup(s)
             self._buttons[side] = btn
             # Read initial state
-            self._off_hook[side] = not btn.is_pressed
+            self._off_hook[side] = btn.is_pressed
 
     def _pickup(self, side: str):
         self._off_hook[side] = True
