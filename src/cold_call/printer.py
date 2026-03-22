@@ -92,9 +92,9 @@ class PrinterConnection:
             except (OSError, IOError):
                 return
 
-        dispatch = _compose_dispatch(prompt, theme=theme,
-                                     dispatch_num=dispatch_num)
-        _print_raster_chunked(p, dispatch.rotate(180))
+        dispatch, seal_height = _compose_dispatch(prompt, theme=theme,
+                                                   dispatch_num=dispatch_num)
+        _print_raster(p, dispatch.rotate(180))
 
         p.ln(4)
         p.cut()
@@ -240,35 +240,16 @@ def _compose_dispatch(prompt: str, theme: str = "apathy",
         composite.paste(section, (0, y))
         y += section.height
 
-    return composite
+    return composite, seal.height
 
 
-def _print_raster_chunked(p: File, img: Image.Image,
-                           rows_per_chunk: int = 24, delay: float = 0.03):
-    """Send a raster image in small chunks with delays for a dot-matrix feel.
-
-    Each chunk is sent as its own GS v 0 raster command so the printer
-    processes each independently. Creates a consistent mechanical printing
-    rhythm on all printers regardless of USB controller buffering.
-    """
+def _print_raster(p: File, img: Image.Image):
+    """Send a raster image as a single GS v 0 command."""
     ei = EscposImage(img)
     raster_data = ei.to_raster_format()
     width_bytes = img.width // 8
     height = img.height
 
-    # Set line spacing to 0 so chunks print without gaps
-    p._raw(b'\x1b\x33\x00')  # ESC 3 0
-
-    for row_start in range(0, height, rows_per_chunk):
-        chunk_rows = min(rows_per_chunk, height - row_start)
-        offset = row_start * width_bytes
-        chunk_data = raster_data[offset:offset + chunk_rows * width_bytes]
-
-        # Each chunk is its own raster command
-        header = b'\x1d\x76\x30\x00'
-        header += struct.pack('<HH', width_bytes, chunk_rows)
-        p._raw(header + chunk_data)
-        time.sleep(delay)
-
-    # Reset line spacing
-    p._raw(b'\x1b\x32')  # ESC 2
+    header = b'\x1d\x76\x30\x00'
+    header += struct.pack('<HH', width_bytes, height)
+    p._raw(header + raster_data)

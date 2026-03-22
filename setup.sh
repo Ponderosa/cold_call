@@ -33,6 +33,22 @@ else
     echo '>>> CPU governor set to performance'
 fi
 
+# --- Disable SSH password authentication (key-only access) ---
+SSH_NOPASS_CONF="/etc/ssh/sshd_config.d/no-password.conf"
+if [[ ! -f "$SSH_NOPASS_CONF" ]]; then
+    echo 'PasswordAuthentication no' | sudo tee "$SSH_NOPASS_CONF" >/dev/null
+    sudo systemctl reload ssh
+    echo '>>> SSH password authentication disabled'
+fi
+
+# --- Disable WiFi power saving (keeps SSH reachable overnight) ---
+WIFI_POWERSAVE_CONF="/etc/NetworkManager/conf.d/wifi-powersave-off.conf"
+if [[ ! -f "$WIFI_POWERSAVE_CONF" ]]; then
+    printf '[connection]\nwifi.powersave = 2\n' | sudo tee "$WIFI_POWERSAVE_CONF" >/dev/null
+    sudo systemctl restart NetworkManager
+    echo '>>> WiFi power saving disabled'
+fi
+
 # --- USB-C host mode ---
 BOOT_CONFIG="/boot/firmware/config.txt"
 if ! grep -q '^\[all\]' "$BOOT_CONFIG" || ! sed -n '/^\[all\]/,/^\[/p' "$BOOT_CONFIG" | grep -q 'dtoverlay=dwc2,dr_mode=host'; then
