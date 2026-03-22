@@ -55,7 +55,7 @@ cold_call/
 │   ├── audio/            # Sound effects (dial tone, ring, DTMF, announcements)
 │   └── prompts/          # Prompt text files by category
 ├── systemd/              # systemd service + launcher scripts
-└── tests/                # pytest tests (TODO)
+└── tests/                # pytest tests (sandbox fixture blocks real signals/subprocesses)
 ```
 
 ## What's Working
@@ -68,16 +68,6 @@ cold_call/
 - **Audio Flow** — Dial tone, DTMF, ring, connecting announcement (Piper TTS), busy tone, not-in-service timeout message
 - **Boot** — systemd service, hardware wait (3 min), startup banner, status receipts
 - **Hardening** — SSH key-only, WiFi power-save off, CPU performance governor, print-before-audio sequencing
-
-## Remaining Work
-
-- ~~**Hangup click**~~ — Done. Plays to the other earpiece before busy tone.
-- **Off-hook behavior** — Busy tone loops until phone is hung up (intentional, matches real phone behavior).
-- **Graceful printer degradation** — If a printer dies mid-session, better error containment so the other side keeps working.
-- **Supervisor / watchdog** — Thread heartbeats, crash restart with backoff. Currently relies solely on systemd `Restart=always`.
-- **USB hotplug tolerance** — No re-discovery if a device disconnects/reconnects. Needs service restart.
-- **Rotating log file** — Currently journalctl only. Persistent log file for post-mortem.
-- **Tests** — No pytest tests yet.
 
 ## Design Direction
 
@@ -134,13 +124,12 @@ The session flow requires playing sound effects to individual handsets:
 
 Use `aplay` to play WAV files to specific ALSA devices (`plughw:N,0`). Sound effects are short WAV files in `assets/audio/`. Background music is a playlist of files that loop during the conversation.
 
-### Robustness Goals
-- systemd `Restart=always` as outer safety net ✓
-- Logging to journalctl ✓ (rotating file: TODO)
-- Hardware wait on boot with 3-min timeout ✓
-- Graceful degradation (one printer dies → other side keeps working) — TODO
-- Supervisor with thread heartbeats and exponential backoff — TODO
-- USB hotplug tolerance — TODO
+### Robustness
+- systemd `Restart=always` (5s restart delay)
+- Hardware wait on boot (3-min timeout)
+- Graceful printer degradation (one dies, other side keeps working)
+- Off-hook busy tone loops until hangup (matches real phone behavior)
+- Logging to journalctl
 
 ### Cradle Switch Wiring
 - Mechanical switch: one terminal → GPIO pin (BCM 17 / BCM 27), other → GND

@@ -43,7 +43,7 @@ The Pi 4's Type-A ports share a single USB controller (VL805) with a Single-TT i
 SSH into the Pi, then:
 
 ```bash
-git clone https://github.com/Ponderosa/cold_call.git ~/workspace/cold_call
+git clone https://github.com/ponderosa/cold_call.git ~/workspace/cold_call
 cd ~/workspace/cold_call
 ./setup.sh <station-number>   # 1, 2, or 3
 ```

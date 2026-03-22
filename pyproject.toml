@@ -17,3 +17,12 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.pytest.ini_options]
+log_cli = true
+log_cli_level = "INFO"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.2",
+]
