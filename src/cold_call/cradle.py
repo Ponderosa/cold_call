@@ -9,6 +9,8 @@ Both modes expose the same interface so the rest of the code doesn't care.
 
 from __future__ import annotations
 
+import subprocess
+import struct
 import sys
 import select
 import termios
@@ -142,6 +144,112 @@ class GPIOCradle(CradleBase):
         self._buttons.clear()
 
 
+class ButtonCradle(CradleBase):
+    """Use POP Phone HID button (KEY_PLAYPAUSE) as hook toggle.
+
+    Each POP Phone has a button that sends KEY_PLAYPAUSE (164) as a
+    momentary press. A helper subprocess reads raw input events and
+    writes button labels to a pipe. This keeps HID reads out of the
+    main Python process to avoid interfering with audio subprocesses.
+    """
+
+    def __init__(self, sides: list):
+        super().__init__()
+        self._sides = sides
+        self._running = False
+        self._proc: subprocess.Popen | None = None
+        self._thread: threading.Thread | None = None
+
+    def start(self):
+        import subprocess as sp
+
+        self._running = True
+
+        # Build device→label mapping as args for the helper
+        dev_args = []
+        for side in self._sides:
+            if not side.input_dev:
+                print(f"  WARNING: Side {side.label} has no input device for button cradle")
+                continue
+            dev_args.extend([side.label, side.input_dev])
+            print(f"  [button] Side {side.label}: listening on {side.input_dev}")
+
+        if not dev_args:
+            return
+
+        # Spawn a subprocess that reads HID events and prints labels
+        self._proc = sp.Popen(
+            [sys.executable, "-c", _BUTTON_HELPER_CODE, *dev_args],
+            stdout=sp.PIPE, stderr=sp.DEVNULL,
+        )
+        self._thread = threading.Thread(target=self._read_output, daemon=True)
+        self._thread.start()
+
+    def _read_output(self):
+        """Read button labels from the helper subprocess."""
+        while self._running and self._proc:
+            line = self._proc.stdout.readline()
+            if not line:
+                break
+            label = line.decode().strip()
+            if label in ("A", "B"):
+                self._toggle(label)
+                state = "OFF HOOK" if self._off_hook[label] else "ON HOOK"
+                print(f"  [button] Side {label}: {state}")
+
+    def stop(self):
+        self._running = False
+        if self._proc:
+            try:
+                self._proc.terminate()
+                self._proc.wait(timeout=2)
+            except Exception:
+                try:
+                    self._proc.kill()
+                except Exception:
+                    pass
+            self._proc = None
+        if self._thread:
+            self._thread.join(timeout=2)
+
+
+# Helper script run as a subprocess — reads HID events and prints side labels.
+# Runs in its own process so blocking reads don't affect audio subprocess scheduling.
+_BUTTON_HELPER_CODE = """
+import struct, sys, select, os
+
+EV_KEY = 0x01
+KEY_PLAYPAUSE = 164
+FMT = 'llHHi'
+SIZE = struct.calcsize(FMT)
+
+# Parse args: label1 dev1 label2 dev2 ...
+args = sys.argv[1:]
+fds = {}
+for i in range(0, len(args), 2):
+    label, dev = args[i], args[i+1]
+    try:
+        fd = os.open(dev, os.O_RDONLY)
+        fds[fd] = label
+    except OSError as e:
+        print(f"ERROR: {dev}: {e}", file=sys.stderr)
+
+if not fds:
+    sys.exit(1)
+
+while True:
+    ready, _, _ = select.select(list(fds.keys()), [], [])
+    for fd in ready:
+        data = os.read(fd, SIZE)
+        if len(data) < SIZE:
+            continue
+        _s, _u, t, c, v = struct.unpack(FMT, data)
+        if t == EV_KEY and c == KEY_PLAYPAUSE and v == 1:
+            sys.stdout.write(fds[fd] + '\\n')
+            sys.stdout.flush()
+"""
+
+
 class DemoCradle(CradleBase):
     """Auto-cycles through sessions for headless testing without GPIO."""
 
@@ -209,10 +317,20 @@ class DemoCradle(CradleBase):
             self._thread.join(timeout=2)
 
 
-def create_cradle(use_gpio: bool = True, demo: bool = False) -> CradleBase:
-    """Factory: create the appropriate cradle implementation."""
-    if demo:
+def create_cradle(mode: str = "gpio", sides: list | None = None) -> CradleBase:
+    """Factory: create the appropriate cradle implementation.
+
+    Modes: "gpio", "keyboard", "button", "demo"
+    The "button" mode requires sides with input_dev populated.
+    """
+    if mode == "demo":
         return DemoCradle()
-    if use_gpio:
+    if mode == "gpio":
         return GPIOCradle()
-    return KeyboardCradle()
+    if mode == "button":
+        if not sides:
+            raise RuntimeError("Button cradle requires sides with input devices")
+        return ButtonCradle(sides)
+    if mode == "keyboard":
+        return KeyboardCradle()
+    raise ValueError(f"Unknown cradle mode: {mode!r}")
