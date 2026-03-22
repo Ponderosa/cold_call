@@ -82,6 +82,7 @@ class SoundPlayer:
             cmd = (
                 f"while true; do tail -c +45 '{path}'; done "
                 f"| aplay -D dmix:{side.card},0 -c 2 -r {RATE} -f {FORMAT} -t raw"
+                f" --buffer-size {BUFFER} --period-size {PERIOD}"
             )
             self._proc = subprocess.Popen(
                 cmd, shell=True, stderr=subprocess.DEVNULL,
@@ -89,7 +90,9 @@ class SoundPlayer:
             )
         else:
             self._proc = subprocess.Popen(
-                ["aplay", "-D", f"dmix:{side.card},0", path],
+                ["aplay", "-D", f"dmix:{side.card},0",
+                 "--buffer-size", str(BUFFER), "--period-size", str(PERIOD),
+                 path],
                 stderr=subprocess.DEVNULL,
                 preexec_fn=_preexec,
             )
