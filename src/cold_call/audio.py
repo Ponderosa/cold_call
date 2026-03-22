@@ -14,6 +14,7 @@ import ctypes
 import os
 import signal
 import subprocess
+import sys
 import time
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -124,14 +125,76 @@ class SoundPlayer:
             self._proc = None
 
 
+# Inline mixer subprocess — reads mic PCM from stdin, mixes in a looping
+# music WAV file, writes mixed PCM to stdout.  Runs in its own process to
+# keep Python out of the audio hot path in the main process.
+_MIXER_CODE = """
+import sys, array
+
+CHUNK = 1024 * 4  # period_size * frame_size (2ch * 2bytes)
+
+music_path = sys.argv[1]
+music_vol = float(sys.argv[2])
+
+with open(music_path, 'rb') as f:
+    f.read(44)  # skip WAV header
+    music_data = f.read()
+
+music_pos = 0
+
+while True:
+    mic = sys.stdin.buffer.read(CHUNK)
+    if not mic:
+        break
+
+    n_bytes = len(mic)
+
+    # Get music chunk, looping
+    music_chunk = bytearray()
+    remaining = n_bytes
+    while remaining > 0:
+        available = len(music_data) - music_pos
+        take = min(remaining, available)
+        music_chunk.extend(music_data[music_pos:music_pos + take])
+        music_pos += take
+        if music_pos >= len(music_data):
+            music_pos = 0
+        remaining -= take
+
+    # Mix samples
+    mic_samples = array.array('h')
+    mic_samples.frombytes(mic)
+    music_samples = array.array('h')
+    music_samples.frombytes(bytes(music_chunk))
+
+    out = array.array('h', [
+        max(-32768, min(32767, int(m + v * music_vol)))
+        for m, v in zip(mic_samples, music_samples)
+    ])
+
+    sys.stdout.buffer.write(out.tobytes())
+    sys.stdout.buffer.flush()
+"""
+
+
 class CrossRoute:
-    """Bidirectional audio cross-route between two sides."""
+    """Bidirectional audio cross-route between two sides.
+
+    Optionally mixes a background music file into both earpieces via an
+    inline Python mixer subprocess: arecord | mixer | aplay.  All playback
+    goes through plughw (no dmix) to avoid DWC2 crackle.
+    """
 
     def __init__(self):
         self._procs: list[subprocess.Popen] = []
 
-    def start(self, side_a: Side, side_b: Side):
-        """Start cross-routing: Mic A → Earpiece B, Mic B → Earpiece A."""
+    def start(self, side_a: Side, side_b: Side,
+              music_path: str | Path | None = None, music_volume: float = 0.3):
+        """Start cross-routing: Mic A → Earpiece B, Mic B → Earpiece A.
+
+        If music_path is given, mixes that WAV file (looping) into both
+        earpieces at the given volume (0.0–1.0).
+        """
         self.stop()
         self._procs = []
 
@@ -150,7 +213,7 @@ class CrossRoute:
             ]
             aplay = [
                 "aplay",
-                "-D", f"dmix:{play.card},0",
+                "-D", f"plughw:{play.card},0",
                 "-c", "2", "-r", str(RATE), "-f", FORMAT, "-t", "raw",
                 "--buffer-size", str(BUFFER), "--period-size", str(PERIOD),
             ]
@@ -159,12 +222,29 @@ class CrossRoute:
                 arecord, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
                 preexec_fn=_set_pdeathsig,
             )
-            plr = subprocess.Popen(
-                aplay, stdin=rec.stdout, stderr=subprocess.DEVNULL,
-                preexec_fn=_set_pdeathsig,
-            )
-            rec.stdout.close()
-            self._procs.extend([rec, plr])
+
+            if music_path:
+                mixer = subprocess.Popen(
+                    [sys.executable, "-c", _MIXER_CODE,
+                     str(music_path), str(music_volume)],
+                    stdin=rec.stdout, stdout=subprocess.PIPE,
+                    stderr=subprocess.DEVNULL,
+                    preexec_fn=_set_pdeathsig,
+                )
+                rec.stdout.close()
+                plr = subprocess.Popen(
+                    aplay, stdin=mixer.stdout, stderr=subprocess.DEVNULL,
+                    preexec_fn=_set_pdeathsig,
+                )
+                mixer.stdout.close()
+                self._procs.extend([rec, mixer, plr])
+            else:
+                plr = subprocess.Popen(
+                    aplay, stdin=rec.stdout, stderr=subprocess.DEVNULL,
+                    preexec_fn=_set_pdeathsig,
+                )
+                rec.stdout.close()
+                self._procs.extend([rec, plr])
 
     def stop(self):
         """Stop the cross-route."""

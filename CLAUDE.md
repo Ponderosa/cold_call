@@ -178,6 +178,7 @@ Run `uv run python -m cold_call.hardware` to see current topology.
 - PulseAudio module-loopback: POP Phone capture source stalls (latency climbs to 100s+ seconds). Not reliable.
 - pyalsaaudio with plughw + threads: intermittent stutter from Python GIL contention. Abandoned.
 - **arecord|aplay subprocess pipes: works.** This is the approach.
+- **NEVER use ALSA dmix.** DWC2 crackles with dmix — even a single dmix client causes issues. Use `plughw` for all playback. Background music is mixed in-pipeline via a Python mixer subprocess (`arecord | mixer | aplay`), not via dmix. Sound effects (dial tone, ring, busy tone) play via dmix only when the cross-route is NOT running.
 - Pi 4 VL805 internal hub is Single-TT — two full-speed USB audio devices on Type-A ports will stutter. Solved by splitting across VL805 + DWC2.
 - AB13X USB handset is electrically flaky — causes USB errors under load. Do not use.
 - ALSA mixer simple control names: 'PCM', 'Mic', 'Auto Gain Control' (not 'PCM Playback Volume').

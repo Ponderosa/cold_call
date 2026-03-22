@@ -53,8 +53,6 @@ class Session:
         self._receiver_label: str | None = None
         self._player_a = SoundPlayer()
         self._player_b = SoundPlayer()
-        self._music_a = SoundPlayer()
-        self._music_b = SoundPlayer()
         self._crossroute = CrossRoute()
         self._state_event = threading.Event()
         self._dispatch_count = 0
@@ -207,23 +205,21 @@ class Session:
             self._player_b.stop()
             time.sleep(0.2)
 
-            # Start cross-route, then play announcement on top via dmix
-            self._crossroute.start(self._caller, self._receiver)
-            time.sleep(0.3)
-
-            # Announcement on both earpieces (collect call style)
+            # Announcement on both earpieces, then cross-route
+            # (playing announcement during cross-route causes DWC2 crackle)
             cp = self._player_for(self._caller_label)
             rp = self._player_for(self._receiver_label)
             cp.play(self._caller, AUDIO_DIR / "connecting.wav")
             rp.play(self._receiver, AUDIO_DIR / "connecting.wav")
             cp.wait()
             rp.stop()
+            time.sleep(0.2)
 
-            # Background music on both earpieces (loops during conversation)
-            if self.config.background_audio:
-                bg_path = AUDIO_DIR / self.config.background_audio
-                self._music_a.play(self.sides[0], bg_path, loop=True)
-                self._music_b.play(self.sides[1], bg_path, loop=True)
+            # Start cross-route after announcement finishes
+            # Background music is mixed into the pipeline (no dmix)
+            bg_path = AUDIO_DIR / self.config.background_audio if self.config.background_audio else None
+            self._crossroute.start(self._caller, self._receiver,
+                                   music_path=bg_path)
 
             print("  CALL CONNECTED!")
 
@@ -270,8 +266,6 @@ class Session:
     def _do_hangup(self):
         """Clean up after a call ends."""
         print("  Hanging up...")
-        self._music_a.stop()
-        self._music_b.stop()
         self._crossroute.stop()
 
         # Play busy tone to whichever side is still off hook
@@ -281,13 +275,18 @@ class Session:
         ]:
             if self.cradle.is_off_hook(side_label):
                 print(f"  Side {side_label} still off hook — playing busy tone")
-                player.play(side, AUDIO_DIR / "busy_tone.wav")
+                player.play(side, AUDIO_DIR / "busy_tone.wav", loop=True)
             else:
                 player.stop()
 
         cooldown = self.config.cooldown
         print(f"  Cooldown ({cooldown}s)...")
         time.sleep(cooldown)
+
+        # Wait for all phones to be on hook before stopping busy tone
+        while self.cradle.is_off_hook("A") or self.cradle.is_off_hook("B"):
+            time.sleep(0.2)
+
         self._player_a.stop()
         self._player_b.stop()
         print("\nWaiting for someone to pick up a phone...")
@@ -303,8 +302,6 @@ class Session:
     def stop(self):
         self._running = False
         self._state_event.set()
-        self._music_a.stop()
-        self._music_b.stop()
         self._crossroute.stop()
         self._player_a.stop()
         self._player_b.stop()
