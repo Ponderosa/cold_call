@@ -73,16 +73,19 @@ class PrinterConnection:
             p = self._get()
         except (OSError, IOError):
             return
-        for i in range(cycles):
-            p.buzzer(times=9, duration=1)
-            time.sleep(1.5)
-            p.buzzer(times=9, duration=1)
-            if i < cycles - 1:
-                time.sleep(3.0)
+        try:
+            for i in range(cycles):
+                p.buzzer(times=9, duration=1)
+                time.sleep(1.5)
+                p.buzzer(times=9, duration=1)
+                if i < cycles - 1:
+                    time.sleep(3.0)
+        except Exception:
+            self.close()
 
     def print_prompt(self, prompt: str, theme: str = "apathy",
                      dispatch_num: int = 0):
-        """Print a prompt dispatch."""
+        """Print a prompt dispatch. Fails gracefully if printer is dead."""
         try:
             p = self._get()
         except (OSError, IOError):
@@ -91,64 +94,70 @@ class PrinterConnection:
             except (OSError, IOError):
                 return
 
-        dispatch = _compose_dispatch(prompt, theme=theme,
-                                     dispatch_num=dispatch_num)
-        _print_raster(p, dispatch.rotate(180))
-
-        p.ln(4)
-        p.cut()
+        try:
+            dispatch = _compose_dispatch(prompt, theme=theme,
+                                         dispatch_num=dispatch_num)
+            _print_raster(p, dispatch.rotate(180))
+            p.ln(4)
+            p.cut()
+        except Exception as e:
+            print(f"  WARNING: Printer {self.side.label} failed mid-print: {e}")
+            self.close()
 
     def print_status(self, info: dict):
-        """Print a startup status receipt."""
+        """Print a startup status receipt. Fails gracefully."""
         try:
             p = self._get()
         except (OSError, IOError):
             return
 
-        sections = []
+        try:
+            sections = []
 
-        sections.append(_render_text(
-            ["BUREAU OF AMBIENT BELONGING"],
-            font_path=FONT_BOLD, size=20, pad_top=16, pad_bottom=4,
-        ))
-        sections.append(_render_text(
-            ["System Status Report"],
-            size=18, pad_bottom=8,
-        ))
-        sections.append(_render_separator())
+            sections.append(_render_text(
+                ["BUREAU OF AMBIENT BELONGING"],
+                font_path=FONT_BOLD, size=20, pad_top=16, pad_bottom=4,
+            ))
+            sections.append(_render_text(
+                ["System Status Report"],
+                size=18, pad_bottom=8,
+            ))
+            sections.append(_render_separator())
 
-        # Key-value lines, left-aligned
-        kv_lines = [
-            f"Host:     {info.get('host', '?')}",
-            f"IP:       {info.get('ip', '?')}",
-            f"Uptime:   {info.get('uptime', '?')}",
-            f"Station:  {info.get('station', '?')}",
-            f"Side:     {info.get('side', '?')}",
-            f"Bus:      {info.get('bus', '?')}",
-            f"Phone:    card {info.get('card', '?')}",
-            f"Printer:  {info.get('printer_dev', '?')}",
-        ]
-        sections.append(_render_text(
-            kv_lines, size=20, align="left", line_spacing=4,
-            pad_top=8, pad_bottom=8,
-        ))
+            kv_lines = [
+                f"Host:     {info.get('host', '?')}",
+                f"IP:       {info.get('ip', '?')}",
+                f"Uptime:   {info.get('uptime', '?')}",
+                f"Station:  {info.get('station', '?')}",
+                f"Side:     {info.get('side', '?')}",
+                f"Bus:      {info.get('bus', '?')}",
+                f"Phone:    card {info.get('card', '?')}",
+                f"Printer:  {info.get('printer_dev', '?')}",
+            ]
+            sections.append(_render_text(
+                kv_lines, size=20, align="left", line_spacing=4,
+                pad_top=8, pad_bottom=8,
+            ))
 
-        sections.append(_render_separator())
-        sections.append(_render_text(
-            ["Ready for calls."],
-            font_path=FONT_BOLD, size=22, pad_top=8, pad_bottom=16,
-        ))
+            sections.append(_render_separator())
+            sections.append(_render_text(
+                ["Ready for calls."],
+                font_path=FONT_BOLD, size=22, pad_top=8, pad_bottom=16,
+            ))
 
-        total_h = sum(s.height for s in sections)
-        composite = Image.new("1", (PRINT_WIDTH, total_h), 1)
-        y = 0
-        for section in sections:
-            composite.paste(section, (0, y))
-            y += section.height
+            total_h = sum(s.height for s in sections)
+            composite = Image.new("1", (PRINT_WIDTH, total_h), 1)
+            y = 0
+            for section in sections:
+                composite.paste(section, (0, y))
+                y += section.height
 
-        _print_raster(p, composite.rotate(180))
-        p.ln(4)
-        p.cut()
+            _print_raster(p, composite.rotate(180))
+            p.ln(4)
+            p.cut()
+        except Exception as e:
+            print(f"  WARNING: Printer {self.side.label} status print failed: {e}")
+            self.close()
 
     def close(self):
         """Close the printer connection."""

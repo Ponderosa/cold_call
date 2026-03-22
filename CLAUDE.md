@@ -58,18 +58,28 @@ cold_call/
 └── tests/                # pytest tests (TODO)
 ```
 
+## What's Working
+
+- **Audio Router** — arecord|aplay cross-route, in-pipeline background music mixer
+- **Cradle Detection** — Button mode (POP Phone HID), GPIO mode, keyboard mode
+- **Printer Controller** — Raster printing (single-write for DWC2), status receipts on boot
+- **Prompt Engine** — 7 department themes, randomized, per-side config
+- **Session Manager** — Full state machine: idle → dial tone → DTMF → ring → connect → conversation → hangup
+- **Audio Flow** — Dial tone, DTMF, ring, connecting announcement (Piper TTS), busy tone, not-in-service timeout message
+- **Boot** — systemd service, hardware wait (3 min), startup banner, status receipts
+- **Hardening** — SSH key-only, WiFi power-save off, CPU performance governor, print-before-audio sequencing
+
+## Remaining Work
+
+- ~~**Hangup click**~~ — Done. Plays to the other earpiece before busy tone.
+- **Off-hook behavior** — Busy tone loops until phone is hung up (intentional, matches real phone behavior).
+- **Graceful printer degradation** — If a printer dies mid-session, better error containment so the other side keeps working.
+- **Supervisor / watchdog** — Thread heartbeats, crash restart with backoff. Currently relies solely on systemd `Restart=always`.
+- **USB hotplug tolerance** — No re-discovery if a device disconnects/reconnects. Needs service restart.
+- **Rotating log file** — Currently journalctl only. Persistent log file for post-mortem.
+- **Tests** — No pytest tests yet.
+
 ## Design Direction
-
-These are aspirations, not specs. We'll build toward this incrementally.
-
-### Subsystems (eventual)
-- **Audio Router** — Cross-routes handset audio, mixes in background music
-- **Cradle Detection** — GPIO reads on hook switches, drives session state
-- **Printer Controller** — Drives MHT-80E printers, prints prompts on interval
-- **Prompt Engine** — Curated question categories, randomized
-- **Session Manager** — State machine: idle → waiting → conversation → wind-down → idle
-- **Supervisor** — Watchdog for threads, restart on crash, health checks
-- **Background Music** — Ambient audio loop mixed into handsets
 
 ### Session Flow
 
@@ -125,12 +135,12 @@ The session flow requires playing sound effects to individual handsets:
 Use `aplay` to play WAV files to specific ALSA devices (`plughw:N,0`). Sound effects are short WAV files in `assets/audio/`. Background music is a playlist of files that loop during the conversation.
 
 ### Robustness Goals
-- Each subsystem in its own thread with heartbeat
-- Supervisor restarts crashed threads with exponential backoff
-- Graceful degradation (one printer dies → other side keeps working)
-- USB hotplug tolerance
-- systemd `Restart=always` as outer safety net
-- Logging to journalctl + rotating file
+- systemd `Restart=always` as outer safety net ✓
+- Logging to journalctl ✓ (rotating file: TODO)
+- Hardware wait on boot with 3-min timeout ✓
+- Graceful degradation (one printer dies → other side keeps working) — TODO
+- Supervisor with thread heartbeats and exponential backoff — TODO
+- USB hotplug tolerance — TODO
 
 ### Cradle Switch Wiring
 - Mechanical switch: one terminal → GPIO pin (BCM 17 / BCM 27), other → GND

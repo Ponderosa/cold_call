@@ -297,12 +297,14 @@ class Session:
         print("  Hanging up...")
         self._crossroute.stop()
 
-        # Play busy tone to whichever side is still off hook
+        # Play hangup click to the side still off hook, then busy tone
         for side_label, player, side in [
             ("A", self._player_a, self.sides[0]),
             ("B", self._player_b, self.sides[1]),
         ]:
             if self.cradle.is_off_hook(side_label):
+                player.play(side, AUDIO_DIR / "hangup.wav")
+                player.wait()
                 print(f"  Side {side_label} still off hook — playing busy tone")
                 player.play(side, AUDIO_DIR / "busy_tone.wav", loop=True)
             else:
