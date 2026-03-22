@@ -23,6 +23,7 @@ class Side:
     card_id: str         # ALSA card id (e.g. "Phone", "Phone_1")
     printer_dev: str     # e.g. "/dev/usb/lp0"
     usb_bus: str         # USB bus prefix for grouping
+    input_dev: str | None = None  # e.g. "/dev/input/event0" (POP Phone HID)
 
 
 def _usb_bus_prefix(sysfs_path: str) -> str:
@@ -98,6 +99,40 @@ def _find_printers() -> list[dict]:
     return printers
 
 
+def _find_input_devices() -> list[dict]:
+    """Find POP Phone HID input devices and their USB bus info."""
+    devices = []
+    for event_dir in sorted(Path("/sys/class/input").glob("event[0-9]*")):
+        # Read device name from the parent inputN directory
+        input_dir = event_dir.resolve().parent
+        name_path = input_dir / "name"
+        if not name_path.exists():
+            continue
+        try:
+            name = name_path.read_text().strip()
+        except OSError:
+            continue
+
+        if "POP Phone" not in name:
+            continue
+
+        dev_path = f"/dev/input/{event_dir.name}"
+        if not os.path.exists(dev_path):
+            continue
+
+        sysfs_path = str(event_dir.resolve())
+        bus = _usb_bus_prefix(sysfs_path)
+
+        devices.append({
+            "dev": dev_path,
+            "bus": bus,
+            "sysfs": sysfs_path,
+            "name": name,
+        })
+
+    return devices
+
+
 def discover_sides() -> list[Side]:
     """Discover and pair phones + printers by USB bus.
 
@@ -146,6 +181,13 @@ def discover_sides() -> list[Side]:
             f"Printers on buses: {[p['bus'] for p in printers]}"
         )
 
+    # Match input devices (POP Phone HID buttons) to sides by bus
+    input_devs = _find_input_devices()
+    for side in sides:
+        matching = [d for d in input_devs if d["bus"] == side.usb_bus]
+        if matching:
+            side.input_dev = matching[0]["dev"]
+
     return sides
 
 
@@ -185,12 +227,19 @@ def print_topology():
         print(f"  {p['dev']} on bus {p['bus']}")
         print(f"    sysfs: {p['sysfs']}")
 
+    input_devs = _find_input_devices()
+    print("Input Devices:")
+    for d in input_devs:
+        print(f"  {d['dev']} ({d['name'].strip()}) on bus {d['bus']}")
+        print(f"    sysfs: {d['sysfs']}")
+
     print()
     try:
         sides = discover_sides()
         print(f"Paired {len(sides)} side(s):")
         for s in sides:
-            print(f"  Side {s.label}: card {s.card} ({s.card_id}) + {s.printer_dev} [bus {s.usb_bus}]")
+            input_str = s.input_dev or "none"
+            print(f"  Side {s.label}: card {s.card} ({s.card_id}) + {s.printer_dev} + {input_str} [bus {s.usb_bus}]")
     except RuntimeError as e:
         print(f"Pairing failed: {e}")
 
