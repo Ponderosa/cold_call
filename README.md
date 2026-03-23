@@ -43,6 +43,7 @@ The Pi 4's Type-A ports share a single USB controller (VL805) with a Single-TT i
 SSH into the Pi, then:
 
 ```bash
+sudo apt update && sudo apt install -y git
 git clone https://github.com/ponderosa/cold_call.git ~/workspace/cold_call
 cd ~/workspace/cold_call
 ./setup.sh <station-number>   # 1, 2, or 3
@@ -58,6 +59,8 @@ cd ~/workspace/cold_call
 - uv + Python dependencies
 - PulseAudio disable (if present)
 - systemd service install + enable
+
+> **Note:** The uv install can fail on a fresh Pi if the network is slow. If setup stops partway through, just re-run `./setup.sh <station-number>` — all steps are idempotent.
 
 ### 3. Reboot
 
