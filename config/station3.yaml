@@ -2,7 +2,7 @@
 # Department of Polite Indifference / Division of Conditional Invitations
 
 name: station3
-cradle: button
+cradle: hybrid
 cooldown: 1.0
 background_audio: rain_city_loop.wav
 

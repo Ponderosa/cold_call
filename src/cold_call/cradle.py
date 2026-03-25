@@ -250,6 +250,101 @@ while True:
 """
 
 
+class HybridCradle(CradleBase):
+    """Combines GPIO hook switches (absolute state) with POP Phone HID buttons (toggle).
+
+    GPIO is authoritative — switch closed = off hook, switch open = on hook.
+    POP button press toggles state as a backup/override.
+    Either source fires the same pickup/hangup callbacks.
+    """
+
+    PINS = {"A": 17, "B": 27}
+
+    def __init__(self, sides: list):
+        super().__init__()
+        self._sides = sides
+        self._buttons = {}
+        self._button_proc: subprocess.Popen | None = None
+        self._button_thread: threading.Thread | None = None
+        self._running = False
+
+    def start(self):
+        self._running = True
+
+        # --- GPIO hook switches ---
+        from gpiozero import Button
+
+        for side, pin in self.PINS.items():
+            btn = Button(pin, pull_up=True, bounce_time=0.05)
+            btn.when_pressed = lambda s=side: self._gpio_pickup(s)
+            btn.when_released = lambda s=side: self._gpio_hangup(s)
+            self._buttons[side] = btn
+            self._off_hook[side] = btn.is_pressed
+            state = "OFF HOOK" if btn.is_pressed else "ON HOOK"
+            print(f"  [gpio] Side {side}: pin {pin} → {state}")
+
+        # --- POP Phone HID buttons ---
+        dev_args = []
+        for side in self._sides:
+            if not side.input_dev:
+                print(f"  WARNING: Side {side.label} has no input device for button")
+                continue
+            dev_args.extend([side.label, side.input_dev])
+            print(f"  [button] Side {side.label}: listening on {side.input_dev}")
+
+        if dev_args:
+            self._button_proc = subprocess.Popen(
+                [sys.executable, "-c", _BUTTON_HELPER_CODE, *dev_args],
+                stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+            )
+            self._button_thread = threading.Thread(target=self._read_buttons, daemon=True)
+            self._button_thread.start()
+
+    def _gpio_pickup(self, side: str):
+        self._off_hook[side] = True
+        print(f"  [gpio] Side {side}: OFF HOOK")
+        if self._on_pickup:
+            self._on_pickup(side)
+
+    def _gpio_hangup(self, side: str):
+        self._off_hook[side] = False
+        print(f"  [gpio] Side {side}: ON HOOK")
+        if self._on_hangup:
+            self._on_hangup(side)
+
+    def _read_buttons(self):
+        """Read POP button presses from helper subprocess — toggles state."""
+        while self._running and self._button_proc:
+            line = self._button_proc.stdout.readline()
+            if not line:
+                break
+            label = line.decode().strip()
+            if label in ("A", "B"):
+                self._toggle(label)
+                state = "OFF HOOK" if self._off_hook[label] else "ON HOOK"
+                print(f"  [button] Side {label}: {state}")
+
+    def stop(self):
+        self._running = False
+        # Stop GPIO
+        for btn in self._buttons.values():
+            btn.close()
+        self._buttons.clear()
+        # Stop button helper
+        if self._button_proc:
+            try:
+                self._button_proc.terminate()
+                self._button_proc.wait(timeout=2)
+            except Exception:
+                try:
+                    self._button_proc.kill()
+                except Exception:
+                    pass
+            self._button_proc = None
+        if self._button_thread:
+            self._button_thread.join(timeout=2)
+
+
 class DemoCradle(CradleBase):
     """Auto-cycles through sessions for headless testing without GPIO."""
 
@@ -331,6 +426,10 @@ def create_cradle(mode: str = "gpio", sides: list | None = None) -> CradleBase:
         if not sides:
             raise RuntimeError("Button cradle requires sides with input devices")
         return ButtonCradle(sides)
+    if mode == "hybrid":
+        if not sides:
+            raise RuntimeError("Hybrid cradle requires sides with input devices")
+        return HybridCradle(sides)
     if mode == "keyboard":
         return KeyboardCradle()
     raise ValueError(f"Unknown cradle mode: {mode!r}")

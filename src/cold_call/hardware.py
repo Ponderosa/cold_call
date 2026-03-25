@@ -43,8 +43,13 @@ def _usb_bus_prefix(sysfs_path: str) -> str:
     return sysfs_path
 
 
+# Keywords matched against USB manufacturer + product strings to identify phones.
+# Any match means the device is a phone. Case-insensitive.
+_PHONE_KEYWORDS = ["POP Phone", "JieLi"]
+
+
 def _find_pop_phones() -> list[dict]:
-    """Find all POP Phone ALSA cards and their USB bus info."""
+    """Find phone ALSA cards by keyword search on USB manufacturer/product strings."""
     phones = []
     for card_dir in sorted(Path("/sys/class/sound").glob("card[0-9]*")):
         card_num = int(card_dir.name.removeprefix("card"))
@@ -53,13 +58,24 @@ def _find_pop_phones() -> list[dict]:
         except OSError:
             continue
 
-        if "Phone" not in card_id:
-            continue
-
         device_link = card_dir / "device"
         if not device_link.exists():
             continue
         sysfs_path = str(device_link.resolve())
+
+        # Read USB manufacturer + product strings for keyword matching
+        usb_device = device_link.resolve().parent
+        ident_parts = []
+        for attr in ("manufacturer", "product"):
+            try:
+                ident_parts.append((usb_device / attr).read_text().strip())
+            except OSError:
+                pass
+        ident = " ".join(ident_parts).lower()
+
+        if not any(kw.lower() in ident for kw in _PHONE_KEYWORDS):
+            continue
+
         bus = _usb_bus_prefix(sysfs_path)
 
         phones.append({

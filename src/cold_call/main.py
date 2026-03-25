@@ -100,7 +100,7 @@ def _wait_for_hardware() -> list:
 def main():
     parser = argparse.ArgumentParser(description="Cold Calls station controller")
     parser.add_argument("--cradle", type=str, default=None,
-                        choices=["gpio", "keyboard", "button"],
+                        choices=["gpio", "keyboard", "button", "hybrid"],
                         help="Cradle detection mode (default: from config)")
     parser.add_argument("--no-gpio", action="store_true",
                         help="(deprecated) Alias for --cradle keyboard")
@@ -146,6 +146,8 @@ def main():
         print("\n** Keyboard mode — press A or B to toggle phone hook state **")
     elif cradle_mode == "button":
         print("\n** Button mode — press POP Phone button to toggle hook state **")
+    elif cradle_mode == "hybrid":
+        print("\n** Hybrid mode — GPIO hook switches + POP Phone buttons **")
 
     cradle.start()
 
