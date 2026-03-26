@@ -176,9 +176,7 @@ class Session:
                     self._state_event.clear()
                     print(f"  Ringing Side {self._receiver_label}...")
                     cp = self._player_for(self._caller_label)
-                    rp = self._player_for(self._receiver_label)
                     cp.play(self._caller, AUDIO_DIR / "ring_long.wav", loop=True)
-                    rp.play(self._receiver, AUDIO_DIR / "ring_long.wav", loop=True)
 
                     # Buzzer ring on receiver's printer
                     buzzer_thread = None
@@ -200,7 +198,6 @@ class Session:
                     # Wait for receiver pickup or timeout
                     picked_up = self._state_event.wait(timeout=30)
                     cp.stop()
-                    rp.stop()
                     if buzzer_thread:
                         buzzer_thread.join(timeout=2)
 
@@ -343,6 +340,7 @@ class Session:
         except Exception:
             ip = "unknown"
 
+        themes = {"A": self.config.prompts.side_a, "B": self.config.prompts.side_b}
         for pc in self._printers.values():
             side = pc.side
             bus_name = "DWC2/USB-C" if "980000" in side.usb_bus else "VL805/Type-A"
@@ -355,6 +353,7 @@ class Session:
                 "bus": bus_name,
                 "card": side.card,
                 "printer_dev": side.printer_dev,
+                "theme": themes.get(side.label, ""),
             })
 
     def _wait_or_interrupted(self, seconds: float) -> bool:

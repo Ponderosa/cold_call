@@ -99,7 +99,6 @@ class PrinterConnection:
                                          dispatch_num=dispatch_num)
             _print_raster(p, dispatch.rotate(180))
             p.ln(4)
-            p.cut()
         except Exception as e:
             print(f"  WARNING: Printer {self.side.label} failed mid-print: {e}")
             self.close()
@@ -114,8 +113,12 @@ class PrinterConnection:
         try:
             sections = []
 
+            theme = info.get("theme", "")
+            dept = _dept_info(theme) if theme else {}
+            dept_name = dept.get("name", "Bureau of Ambient Belonging")
+
             sections.append(_render_text(
-                ["BUREAU OF AMBIENT BELONGING"],
+                [dept_name.upper()],
                 font_path=FONT_BOLD, size=20, pad_top=16, pad_bottom=4,
             ))
             sections.append(_render_text(
@@ -238,6 +241,9 @@ def _compose_dispatch(prompt: str, theme: str = "apathy",
     # Build sections top-to-bottom as they appear on the receipt
     sections = []
 
+    # Top margin (30mm ≈ 240px at 203dpi)
+    sections.append(Image.new("1", (PRINT_WIDTH, 240), 1))
+
     # Seal
     seal = Image.open(seal_path).convert("1")
     if seal.width < PRINT_WIDTH:
@@ -253,7 +259,7 @@ def _compose_dispatch(prompt: str, theme: str = "apathy",
         form_line = f"{form_id}-{dispatch_num:04d}  |  Priority: {priority}"
     else:
         form_line = f"Form {dispatch_num:04d}  |  Priority: {priority}"
-    sections.append(_render_text(["OFFICIAL DISPATCH"], font_path=FONT_BOLD, size=28,
+    sections.append(_render_text(["APPROVED DIALOGUE"], font_path=FONT_BOLD, size=28,
                                   pad_top=16, pad_bottom=4))
     sections.append(_render_text([form_line], size=18, pad_bottom=12))
 
@@ -261,12 +267,12 @@ def _compose_dispatch(prompt: str, theme: str = "apathy",
     sections.append(_render_separator())
 
     # Question
-    question_lines = _wrap_prompt(prompt)
-    sections.append(Image.new("1", (PRINT_WIDTH, 8), 1))
+    question_lines = _wrap_prompt(prompt, max_chars=14)
+    sections.append(Image.new("1", (PRINT_WIDTH, 24), 1))
     for line in question_lines:
-        sections.append(_render_text([line], font_path=FONT_BOLD, size=32,
+        sections.append(_render_text([line], font_path=FONT_BOLD, size=40,
                                       line_spacing=2, pad_top=2, pad_bottom=2))
-    sections.append(Image.new("1", (PRINT_WIDTH, 8), 1))
+    sections.append(Image.new("1", (PRINT_WIDTH, 24), 1))
 
     # Separator
     sections.append(_render_separator())
