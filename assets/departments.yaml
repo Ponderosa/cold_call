@@ -19,7 +19,7 @@ departments:
     tagline: Civility Through Distance
     priority: At Your Convenience
     established: 1962
-    form: F1
+    form: Form 1
     title: Map of Civility Through Distance
     visual: Seattle neighborhood map
     prompt_file: polite_indifference.txt
@@ -30,7 +30,7 @@ departments:
     tagline: Maintaining the Conditions for Togetherness
     priority: Whenever You're Ready
     established: 1974
-    form: F2
+    form: Form 2
     title: Placements of Togetherness
     visual: Polar/radar chart
     prompt_file: ambient_belonging.txt
@@ -41,7 +41,7 @@ departments:
     tagline: Space with Consideration
     priority: Arm's Length
     established: 1981
-    form: F3
+    form: Form 3
     title: Visualization of Proximity
     visual: Two skeletons reaching toward each other
     prompt_file: acceptable_proximity.txt
@@ -52,7 +52,7 @@ departments:
     tagline: Participation Within Limits
     priority: Optional
     established: 1968
-    form: F4
+    form: Form 4
     title: Plot of Limited Participation
     visual: Grid/graph paper
     prompt_file: minimal_engagement.txt
@@ -63,7 +63,7 @@ departments:
     tagline: Commitment Pending
     priority: Terms and Conditions Apply
     established: 1977
-    form: F5
+    form: Form 5
     title: Abstraction of Commitments
     visual: Lined paper with wide rows
     prompt_file: conditional_invitations.txt
@@ -74,7 +74,7 @@ departments:
     tagline: Excitement at an Appropriate Pace
     priority: Pending Review
     established: 1965
-    form: F6
+    form: Form 6
     title: Map of Appropriate Excitement
     visual: Four-quadrant coordinate plane
     prompt_file: deferred_enthusiasm.txt

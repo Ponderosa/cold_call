@@ -266,6 +266,15 @@ def _compose_dispatch(prompt: str, theme: str = "apathy",
     # Separator
     sections.append(_render_separator())
 
+    # Instructions
+    sections.append(_render_text([
+        "Please interview and record",
+        "the response of the other party.",
+    ], size=20, pad_top=12, pad_bottom=4, line_spacing=4))
+
+    # Separator
+    sections.append(_render_separator())
+
     # Question
     question_lines = _wrap_prompt(prompt, max_chars=14)
     sections.append(Image.new("1", (PRINT_WIDTH, 24), 1))
@@ -273,21 +282,6 @@ def _compose_dispatch(prompt: str, theme: str = "apathy",
         sections.append(_render_text([line], font_path=FONT_BOLD, size=40,
                                       line_spacing=2, pad_top=2, pad_bottom=2))
     sections.append(Image.new("1", (PRINT_WIDTH, 24), 1))
-
-    # Separator
-    sections.append(_render_separator())
-
-    # Instructions
-    sections.append(_render_text([
-        "Please record your response",
-        "using the provided stamps,",
-        "stickers, and tape.",
-    ], size=20, pad_top=12, line_spacing=4))
-
-    sections.append(_render_text([
-        "Do not use writing utensils.",
-        "This is not that kind of form.",
-    ], size=18, pad_top=8, pad_bottom=12, line_spacing=4))
 
     # Footer
     sections.append(_render_separator(char="_", count=30))
