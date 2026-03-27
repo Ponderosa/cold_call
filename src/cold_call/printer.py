@@ -233,10 +233,12 @@ def _compose_dispatch(prompt: str, theme: str = "apathy",
     dept_name = dept.get("name", "Bureau of Apathy")
     tagline = dept.get("tagline", "")
 
-    # Find seal image: try theme-specific, fall back to ambient_belonging
-    seal_path = ASSETS / "images" / f"{theme}_seal.png"
+    # Find seal image: prefer pre-baked small variant, fall back to full size
+    seal_path = ASSETS / "images" / f"{theme}_seal_sm.png"
     if not seal_path.exists():
-        seal_path = ASSETS / "images" / "ambient_belonging_seal.png"
+        seal_path = ASSETS / "images" / f"{theme}_seal.png"
+    if not seal_path.exists():
+        seal_path = ASSETS / "images" / "ambient_belonging_seal_sm.png"
 
     # Build sections top-to-bottom as they appear on the receipt
     sections = []
@@ -303,18 +305,36 @@ def _compose_dispatch(prompt: str, theme: str = "apathy",
     return composite
 
 
+def _sanitize_raster(data: bytes) -> bytes:
+    """Remove ESC/POS command-initiator bytes from raster data.
+
+    The MHT-80E firmware erroneously scans raster pixel data for command
+    sequences, which can trigger IAP firmware-update mode or other dangerous
+    states. We replace the four command-initiator bytes with safe neighbors
+    (1 bit flip = 1 pixel change, visually imperceptible).
+    """
+    table = bytearray(range(256))
+    table[0x10] = 0x11  # DLE — flip bit 0
+    table[0x1b] = 0x1a  # ESC — flip bit 0
+    table[0x1c] = 0x1e  # FS  — flip bit 1
+    table[0x1d] = 0x1f  # GS  — flip bit 1
+    return data.translate(bytes(table))
+
+
 def _print_raster(p: File, img: Image.Image):
     """Send a raster image as a single GS v 0 command.
 
     Builds raster data directly from the 1-bit PIL image, bypassing
     EscposImage (which needlessly round-trips through RGBA/L/invert).
     PIL mode "1": 0=black, 1=white. ESC/POS raster: 1=black, 0=white.
-    So we invert the packed bytes.
+    So we invert the packed bytes, then sanitize to remove any byte values
+    the printer firmware might misinterpret as commands.
     """
     if img.mode != "1":
         img = img.convert("1")
     raw = img.tobytes()
     raster_data = bytes(b ^ 0xFF for b in raw)
+    raster_data = _sanitize_raster(raster_data)
     width_bytes = img.width // 8
     height = img.height
 
