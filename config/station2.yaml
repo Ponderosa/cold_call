@@ -1,5 +1,5 @@
 # Cold Calls — Station 2
-# Office of Acceptable Proximity / Bureau of Ambient Belonging
+# Commission on Deferred Enthusiasm / Office of Acceptable Proximity
 
 name: station2
 cradle: hybrid
@@ -7,8 +7,8 @@ cooldown: 1.0
 background_audio: rain_city_loop.wav
 
 prompts:
-  side_a: acceptable_proximity
-  side_b: ambient_belonging
+  side_a: deferred_enthusiasm
+  side_b: acceptable_proximity
 
 printer:
   enabled: true

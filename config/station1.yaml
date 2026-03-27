@@ -1,5 +1,5 @@
 # Cold Calls — Station 1
-# Administration for Minimal Engagement / Commission on Deferred Enthusiasm
+# Administration for Minimal Engagement / Bureau of Ambient Belonging
 
 name: station1
 cradle: hybrid
@@ -8,7 +8,7 @@ background_audio: rain_city_loop.wav
 
 prompts:
   side_a: minimal_engagement
-  side_b: deferred_enthusiasm
+  side_b: ambient_belonging
 
 printer:
   enabled: true
