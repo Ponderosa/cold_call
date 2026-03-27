@@ -90,6 +90,9 @@ fi
 cd "$REPO_DIR"
 uv sync
 
+# gpiozero needs lgpio from system packages (sysfs GPIO removed in Trixie)
+sed -i "s/include-system-site-packages = false/include-system-site-packages = true/" "$REPO_DIR/.venv/pyvenv.cfg"
+
 # --- Disable PulseAudio (if installed) ---
 # PulseAudio grabs ALSA devices exclusively, blocking our direct
 # arecord/aplay access via plughw. Not present on Lite images.
