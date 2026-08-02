@@ -106,6 +106,10 @@ class Session:
             setup_mixer(side)
         if self.config.printer.enabled:
             for pc in self._printers.values():
+                if not pc.available:
+                    print(f"  Printer {pc.side.label}: none paired — "
+                          f"printing disabled for this side")
+                    continue
                 try:
                     pc._get()
                     print(f"  Printer {pc.side.label} ({pc.side.printer_dev}) ready")
@@ -180,8 +184,8 @@ class Session:
 
                     # Buzzer ring on receiver's printer
                     buzzer_thread = None
-                    if self.config.printer.buzzer_ring:
-                        receiver_printer = self._printers[self._receiver_label]
+                    receiver_printer = self._printers[self._receiver_label]
+                    if self.config.printer.buzzer_ring and receiver_printer.available:
                         def _buzz_loop():
                             while self.state == State.WAITING_FOR_ANSWER:
                                 try:
@@ -342,6 +346,8 @@ class Session:
 
         themes = {"A": self.config.prompts.side_a, "B": self.config.prompts.side_b}
         for pc in self._printers.values():
+            if not pc.available:
+                continue
             side = pc.side
             bus_name = "DWC2/USB-C" if "980000" in side.usb_bus else "VL805/Type-A"
             pc.print_status({

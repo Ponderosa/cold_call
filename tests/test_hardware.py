@@ -63,17 +63,53 @@ def test_discover_sides_no_phones():
 
 
 def test_discover_sides_no_matching_printer():
+    """A phone with no printer on its bus still yields a side, minus the printer."""
     phones = [{"card": 1, "card_id": "Phone", "bus": "bus_a", "sysfs": "/sys/a"}]
     printers = [{"dev": "/dev/usb/lp0", "bus": "bus_b", "sysfs": "/sys/b"}]
 
     with patch("cold_call.hardware._find_pop_phones", return_value=phones), \
          patch("cold_call.hardware._find_printers", return_value=printers), \
          patch("cold_call.hardware._find_input_devices", return_value=[]):
-        try:
-            discover_sides()
-            assert False, "Should have raised RuntimeError"
-        except RuntimeError as e:
-            assert "Could not pair" in str(e)
+        sides = discover_sides()
+
+    assert len(sides) == 1
+    assert sides[0].label == "A"
+    assert sides[0].card == 1
+    assert sides[0].printer_dev is None
+
+
+def test_discover_sides_no_printers_at_all():
+    """Printers unpowered/unplugged: sides still discovered for audio testing."""
+    phones = [
+        {"card": 1, "card_id": "Phone", "bus": "bus_a", "sysfs": "/sys/a"},
+        {"card": 2, "card_id": "Phone_1", "bus": "bus_b", "sysfs": "/sys/b"},
+    ]
+
+    with patch("cold_call.hardware._find_pop_phones", return_value=phones), \
+         patch("cold_call.hardware._find_printers", return_value=[]), \
+         patch("cold_call.hardware._find_input_devices", return_value=[]):
+        sides = discover_sides()
+
+    assert len(sides) == 2
+    assert [s.label for s in sides] == ["A", "B"]
+    assert all(s.printer_dev is None for s in sides)
+
+
+def test_discover_sides_one_printer_only():
+    """One printer powered: that side prints, the other degrades."""
+    phones = [
+        {"card": 1, "card_id": "Phone", "bus": "bus_a", "sysfs": "/sys/a"},
+        {"card": 2, "card_id": "Phone_1", "bus": "bus_b", "sysfs": "/sys/b"},
+    ]
+    printers = [{"dev": "/dev/usb/lp0", "bus": "bus_b", "sysfs": "/sys/pb"}]
+
+    with patch("cold_call.hardware._find_pop_phones", return_value=phones), \
+         patch("cold_call.hardware._find_printers", return_value=printers), \
+         patch("cold_call.hardware._find_input_devices", return_value=[]):
+        sides = discover_sides()
+
+    assert sides[0].printer_dev is None
+    assert sides[1].printer_dev == "/dev/usb/lp0"
 
 
 def test_discover_sides_sorted_by_card():

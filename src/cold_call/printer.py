@@ -44,9 +44,17 @@ class PrinterConnection:
     def __init__(self, side: Side):
         self.side = side
         self._printer: File | None = None
+        self._warned = False
+
+    @property
+    def available(self) -> bool:
+        """False when no printer was paired with this side at discovery."""
+        return self.side.printer_dev is not None
 
     def _connect(self) -> File:
         """Open and initialize the printer."""
+        if not self.available:
+            raise OSError(f"No printer paired with side {self.side.label}")
         p = File(self.side.printer_dev)
         p._raw(b'\x1b\x40')  # ESC @ — initialize printer, clear buffer
         return p
@@ -57,9 +65,13 @@ class PrinterConnection:
             try:
                 self._printer = self._connect()
             except (OSError, IOError) as e:
-                print(f"  WARNING: Printer {self.side.label} "
-                      f"({self.side.printer_dev}): {e}")
+                # Warn once — _get is called on every print and every ring cycle
+                if not self._warned:
+                    print(f"  WARNING: Printer {self.side.label} "
+                          f"({self.side.printer_dev or 'not connected'}): {e}")
+                    self._warned = True
                 raise
+        self._warned = False
         return self._printer
 
     def _reconnect(self) -> File:

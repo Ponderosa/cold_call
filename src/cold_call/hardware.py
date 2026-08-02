@@ -18,11 +18,11 @@ import alsaaudio
 @dataclass
 class Side:
     """One side of the easel: a phone + printer paired on the same USB bus."""
-    label: str           # "A" or "B"
-    card: int            # ALSA card number
-    card_id: str         # ALSA card id (e.g. "Phone", "Phone_1")
-    printer_dev: str     # e.g. "/dev/usb/lp0"
-    usb_bus: str         # USB bus prefix for grouping
+    label: str              # "A" or "B"
+    card: int               # ALSA card number
+    card_id: str            # ALSA card id (e.g. "Phone", "Phone_1")
+    printer_dev: str | None  # e.g. "/dev/usb/lp0", or None if no printer paired
+    usb_bus: str            # USB bus prefix for grouping
     input_dev: str | None = None  # e.g. "/dev/input/event0" (POP Phone HID)
 
 
@@ -150,13 +150,16 @@ def _find_input_devices() -> list[dict]:
 
 
 def discover_sides() -> list[Side]:
-    """Discover and pair phones + printers by USB bus.
+    """Discover phones and pair each with a printer on the same USB bus.
 
-    Returns a list of Side objects (up to 2), each with a phone and printer
-    on the same USB controller. Sides are labeled A and B in stable order
-    (sorted by ALSA card number).
+    Returns a list of Side objects (up to 2), labeled A and B in stable order
+    (sorted by ALSA card number). Phones are the hard requirement — a side
+    whose bus has no printer gets `printer_dev=None` and degrades gracefully:
+    audio, cradle, and the session loop all still work, only printing is lost.
+    (MHT-80E printers need mains power to enumerate on USB, so a station with
+    the printers unplugged must still be testable.)
 
-    Raises RuntimeError if hardware can't be paired.
+    Raises RuntimeError only if no phones are found.
     """
     phones = _find_pop_phones()
     printers = _find_printers()
@@ -164,7 +167,7 @@ def discover_sides() -> list[Side]:
     if not phones:
         raise RuntimeError("No POP Phones found")
     if not printers:
-        raise RuntimeError("No printers found")
+        print("  WARNING: No printers found — running without printing")
 
     sides = []
     labels = iter("AB")
@@ -173,29 +176,25 @@ def discover_sides() -> list[Side]:
     for phone in sorted(phones, key=lambda p: p["card"]):
         # Find printer on same bus
         matching = [p for p in printers if p["bus"] == phone["bus"]]
-        if not matching:
-            print(f"  WARNING: Phone card {phone['card']} ({phone['card_id']}) "
-                  f"on bus {phone['bus']} has no matching printer")
-            continue
+        if matching:
+            printer = matching[0]
+            printer_dev = printer["dev"]
+            # Remove matched printer so it's not reused
+            printers.remove(printer)
+        else:
+            printer_dev = None
+            if printers:
+                print(f"  WARNING: Phone card {phone['card']} ({phone['card_id']}) "
+                      f"on bus {phone['bus']} has no printer on its bus")
 
-        printer = matching[0]
         label = next(labels, "?")
         sides.append(Side(
             label=label,
             card=phone["card"],
             card_id=phone["card_id"],
-            printer_dev=printer["dev"],
+            printer_dev=printer_dev,
             usb_bus=phone["bus"],
         ))
-        # Remove matched printer so it's not reused
-        printers.remove(printer)
-
-    if not sides:
-        raise RuntimeError(
-            f"Could not pair any phones with printers. "
-            f"Phones on buses: {[p['bus'] for p in phones]}, "
-            f"Printers on buses: {[p['bus'] for p in printers]}"
-        )
 
     # Match input devices (POP Phone HID buttons) to sides by bus
     input_devs = _find_input_devices()
@@ -255,7 +254,8 @@ def print_topology():
         print(f"Paired {len(sides)} side(s):")
         for s in sides:
             input_str = s.input_dev or "none"
-            print(f"  Side {s.label}: card {s.card} ({s.card_id}) + {s.printer_dev} + {input_str} [bus {s.usb_bus}]")
+            printer_str = s.printer_dev or "no printer"
+            print(f"  Side {s.label}: card {s.card} ({s.card_id}) + {printer_str} + {input_str} [bus {s.usb_bus}]")
     except RuntimeError as e:
         print(f"Pairing failed: {e}")
 

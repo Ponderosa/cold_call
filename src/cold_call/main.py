@@ -72,8 +72,12 @@ def _print_banner(config):
     print()
 
 
-def _wait_for_hardware() -> list:
-    """Wait for 2 phones and 2 printers to appear, with timeout."""
+def _wait_for_hardware(want_printers: bool = True) -> list:
+    """Wait for 2 phones (and 2 printers, if enabled) to appear, with timeout.
+
+    On timeout we proceed with whatever is present — a missing printer only
+    disables printing for that side, it doesn't stop the station.
+    """
     deadline = time.monotonic() + HARDWARE_TIMEOUT
     last_phones = last_printers = 0
 
@@ -85,14 +89,13 @@ def _wait_for_hardware() -> list:
             print(f"  Found {len(phones)} phone(s), {len(printers)} printer(s)...")
             last_phones, last_printers = len(phones), len(printers)
 
-        if len(phones) >= 2 and len(printers) >= 2:
+        if len(phones) >= 2 and (len(printers) >= 2 or not want_printers):
             return discover_sides()
 
         time.sleep(1)
 
     # Timeout — try with whatever we have
-    remaining = HARDWARE_TIMEOUT
-    print(f"  Timed out after {remaining}s waiting for hardware.")
+    print(f"  Timed out after {HARDWARE_TIMEOUT}s waiting for hardware.")
     print(f"  Proceeding with {last_phones} phone(s), {last_printers} printer(s).")
     return discover_sides()
 
@@ -108,6 +111,9 @@ def main():
                         help="Auto-cycle sessions for headless testing without GPIO")
     parser.add_argument("--config", type=str, default=None,
                         help="Config file name in config/ (e.g. station1.yaml)")
+    parser.add_argument("--no-printers", action="store_true",
+                        help="Skip the boot wait for printers (dev testing "
+                             "without printers powered on)")
     args = parser.parse_args()
 
     # Load config
@@ -120,14 +126,19 @@ def main():
 
     # Wait for USB hardware to enumerate
     print("Waiting for hardware...")
-    sides = _wait_for_hardware()
+    try:
+        want_printers = config.printer.enabled and not args.no_printers
+        sides = _wait_for_hardware(want_printers=want_printers)
+    except RuntimeError as e:
+        sys.exit(str(e))
 
     if len(sides) < 2:
         sys.exit(f"Need 2 sides, found {len(sides)}")
 
     for s in sides:
         bus_name = "DWC2/USB-C" if "980000" in s.usb_bus else "VL805/Type-A"
-        print(f"  Side {s.label}: card {s.card} ({s.card_id}) + {s.printer_dev} [{bus_name}]")
+        printer_str = s.printer_dev or "no printer"
+        print(f"  Side {s.label}: card {s.card} ({s.card_id}) + {printer_str} [{bus_name}]")
 
     # Set up cradle detection (CLI overrides config)
     if args.demo:

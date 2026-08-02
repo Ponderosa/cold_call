@@ -117,3 +117,29 @@ def test_print_raster_sends_correct_header():
     # Total data after header should be width_bytes * height
     raster = sent_data[8:]
     assert len(raster) == width_bytes * height
+
+
+def _side_without_printer():
+    from cold_call.hardware import Side
+    return Side(label="A", card=1, card_id="Phone", printer_dev=None,
+                usb_bus="fd500000.pcie", input_dev="/dev/input/event0")
+
+
+def test_connection_unavailable_without_printer():
+    from cold_call.printer import PrinterConnection
+    pc = PrinterConnection(_side_without_printer())
+    assert pc.available is False
+
+
+def test_print_calls_are_noops_without_printer():
+    """Every public print path degrades quietly when no printer was paired."""
+    from cold_call.printer import PrinterConnection
+    pc = PrinterConnection(_side_without_printer())
+
+    # None of these may raise — the session loop calls them unconditionally
+    pc.print_prompt("Do you feel seen?", theme="apathy", dispatch_num=1)
+    pc.print_status({"host": "test"})
+    pc.buzzer_ring(cycles=1)
+    pc.close()
+
+    assert pc._printer is None
