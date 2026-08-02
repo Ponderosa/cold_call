@@ -51,10 +51,10 @@ def setup_mixer(side: Side):
 
     if "PCM" in mixers:
         m = alsaaudio.Mixer("PCM", cardindex=card)
-        m.setvolume(80)
+        m.setvolume(100)
     if "Mic" in mixers:
         m = alsaaudio.Mixer("Mic", cardindex=card)
-        m.setvolume(80)
+        m.setvolume(100)
     if "Auto Gain Control" in mixers:
         m = alsaaudio.Mixer("Auto Gain Control", cardindex=card)
         m.setmute(0)
