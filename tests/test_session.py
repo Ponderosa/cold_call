@@ -15,7 +15,7 @@ from cold_call.cradle import CradleBase
 _log.info("test_session.py: imports complete")
 
 
-def _make_session(sides, printer_enabled=False):
+def _make_session(sides, printer_enabled=False, hangup_debounce=0):
     """Create a session with mocked audio and printers."""
     config = StationConfig(
         name="test",
@@ -25,8 +25,7 @@ def _make_session(sides, printer_enabled=False):
         prompts=PromptsConfig(side_a="apathy", side_b="apathy"),
         printer=PrinterConfig(enabled=printer_enabled, buzzer_ring=False),
     )
-    cradle = CradleBase()
-    cradle._off_hook = {"A": False, "B": False}
+    cradle = CradleBase(hangup_debounce=hangup_debounce)
 
     with patch("cold_call.session.SoundPlayer") as MockPlayer, \
          patch("cold_call.session.CrossRoute") as MockRoute, \
@@ -95,6 +94,44 @@ class TestStateTransitions:
         session, cradle = _make_session(both_sides)
         session._handle_hangup("A")
         assert session.state == State.IDLE
+
+
+class TestQuickTapDebounce:
+    """The show failure: visitors tap the cradle and lift again on first try."""
+
+    def test_tap_during_call_setup_does_not_end_the_call(self, both_sides):
+        session, cradle = _make_session(both_sides, hangup_debounce=0.3)
+        cradle._set_hook("A", True)
+        assert session.state == State.CALLER_PICKUP
+
+        # Down and back up inside the window — the session must not notice
+        cradle._set_hook("A", False)
+        cradle._set_hook("A", True)
+        time.sleep(0.5)
+
+        assert session.state == State.CALLER_PICKUP
+        assert cradle.is_off_hook("A")
+
+    def test_tap_during_conversation_does_not_end_the_call(self, both_sides):
+        session, cradle = _make_session(both_sides, hangup_debounce=0.3)
+        cradle._set_hook("A", True)
+        cradle._set_hook("B", True)
+        assert session.state == State.CONVERSATION
+
+        cradle._set_hook("B", False)
+        cradle._set_hook("B", True)
+        time.sleep(0.5)
+
+        assert session.state == State.CONVERSATION
+
+    def test_real_hangup_still_ends_the_call(self, both_sides):
+        session, cradle = _make_session(both_sides, hangup_debounce=0.3)
+        cradle._set_hook("A", True)
+        cradle._set_hook("A", False)
+        time.sleep(0.5)
+
+        assert session.state == State.HANGUP
+        assert not cradle.is_off_hook("A")
 
 
 class TestDoHangup:

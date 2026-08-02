@@ -19,11 +19,37 @@ import threading
 from typing import Callable
 
 
-class CradleBase:
-    """Base interface for cradle detection."""
+# Seconds a handset must stay on the cradle before we believe it's a real
+# hangup. Visitors who've never used a landline routinely drop the handset and
+# snatch it back up within a second on their first try; without this, that blip
+# tears down the call they were in the middle of starting.
+HANGUP_DEBOUNCE = 2.0
 
-    def __init__(self):
+
+class CradleBase:
+    """Base interface for cradle detection.
+
+    Tracks two states per side: the raw hook-switch reading and the *reported*
+    state the session sees. Pickups are reported immediately — responsiveness
+    matters when someone lifts a handset. Hangups are held for
+    `hangup_debounce` seconds; if the handset comes back off-hook inside that
+    window, the pending hangup is cancelled and neither callback fires, so a
+    quick tap on the cradle is invisible to the session state machine.
+
+    This is intent-level debounce, distinct from the 50ms electrical
+    `bounce_time` on the GPIO buttons.
+    """
+
+    def __init__(self, hangup_debounce: float = HANGUP_DEBOUNCE):
+        self._hangup_debounce = hangup_debounce
+        # What the session sees.
         self._off_hook: dict[str, bool] = {"A": False, "B": False}
+        # What the hook switch actually reads right now.
+        self._raw_off_hook: dict[str, bool] = {"A": False, "B": False}
+        self._pending_hangup: dict[str, threading.Timer] = {}
+        # Reentrant: is_off_hook() is called from the session thread while
+        # hook events arrive on gpiozero / helper-reader / timer threads.
+        self._lock = threading.RLock()
         self._on_pickup: Callable[[str], None] | None = None
         self._on_hangup: Callable[[str], None] | None = None
 
@@ -38,29 +64,83 @@ class CradleBase:
     def is_off_hook(self, side: str) -> bool:
         return self._off_hook.get(side, False)
 
+    def _set_hook(self, side: str, off_hook: bool):
+        """Feed a raw hook-switch reading through the debounce.
+
+        This is the single chokepoint every mode routes through — GPIO edges,
+        HID button toggles, keypresses, and the demo loop.
+        """
+        callback = None
+        with self._lock:
+            self._raw_off_hook[side] = off_hook
+
+            # Any new reading supersedes a hangup we hadn't committed yet.
+            pending = self._pending_hangup.pop(side, None)
+            if pending is not None:
+                pending.cancel()
+
+            if off_hook:
+                if self._off_hook[side]:
+                    # Already reported off-hook — this reading just cancelled a
+                    # pending hangup. The blip never happened.
+                    return
+                self._off_hook[side] = True
+                callback = self._on_pickup
+            else:
+                if not self._off_hook[side]:
+                    return
+                if self._hangup_debounce > 0:
+                    timer = threading.Timer(
+                        self._hangup_debounce, self._commit_hangup, args=(side,)
+                    )
+                    timer.daemon = True
+                    self._pending_hangup[side] = timer
+                    timer.start()
+                    return
+                self._off_hook[side] = False
+                callback = self._on_hangup
+
+        # Fire outside the lock — callbacks run session logic.
+        if callback:
+            callback(side)
+
+    def _commit_hangup(self, side: str):
+        """Debounce window elapsed with the handset still down — real hangup."""
+        with self._lock:
+            self._pending_hangup.pop(side, None)
+            if self._raw_off_hook[side] or not self._off_hook[side]:
+                return  # raced with a pickup, or already committed
+            self._off_hook[side] = False
+            callback = self._on_hangup
+
+        if callback:
+            callback(side)
+
     def _toggle(self, side: str):
-        """Toggle a side's hook state and fire the appropriate callback."""
-        was_off = self._off_hook[side]
-        self._off_hook[side] = not was_off
-        if was_off:
-            if self._on_hangup:
-                self._on_hangup(side)
-        else:
-            if self._on_pickup:
-                self._on_pickup(side)
+        """Flip a side's hook state (button/keyboard modes)."""
+        with self._lock:
+            new_state = not self._raw_off_hook[side]
+        self._set_hook(side, new_state)
+
+    def _cancel_pending(self):
+        """Drop any in-flight hangup timers."""
+        with self._lock:
+            for timer in self._pending_hangup.values():
+                timer.cancel()
+            self._pending_hangup.clear()
 
     def start(self):
         raise NotImplementedError
 
     def stop(self):
-        raise NotImplementedError
+        self._cancel_pending()
 
 
 class KeyboardCradle(CradleBase):
     """Simulate cradle switches with keyboard input (A/B keys)."""
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, hangup_debounce: float = HANGUP_DEBOUNCE):
+        super().__init__(hangup_debounce)
         self._running = False
         self._thread: threading.Thread | None = None
         self._old_settings = None
@@ -96,6 +176,7 @@ class KeyboardCradle(CradleBase):
                         print(f"  [keyboard] Side {line[0]}: {state}")
 
     def stop(self):
+        super().stop()
         self._running = False
         if self._thread:
             self._thread.join(timeout=1)
@@ -112,8 +193,8 @@ class GPIOCradle(CradleBase):
     # BCM pin assignments
     PINS = {"A": 17, "B": 27}
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, hangup_debounce: float = HANGUP_DEBOUNCE):
+        super().__init__(hangup_debounce)
         self._buttons = {}
 
     def start(self):
@@ -122,23 +203,15 @@ class GPIOCradle(CradleBase):
         for side, pin in self.PINS.items():
             btn = Button(pin, pull_up=True, bounce_time=0.05)
             # Off-hook = pressed (switch closed = LOW), On-hook = released (switch open = HIGH)
-            btn.when_pressed = lambda s=side: self._pickup(s)
-            btn.when_released = lambda s=side: self._hangup(s)
+            btn.when_pressed = lambda s=side: self._set_hook(s, True)
+            btn.when_released = lambda s=side: self._set_hook(s, False)
             self._buttons[side] = btn
             # Read initial state
             self._off_hook[side] = btn.is_pressed
-
-    def _pickup(self, side: str):
-        self._off_hook[side] = True
-        if self._on_pickup:
-            self._on_pickup(side)
-
-    def _hangup(self, side: str):
-        self._off_hook[side] = False
-        if self._on_hangup:
-            self._on_hangup(side)
+            self._raw_off_hook[side] = btn.is_pressed
 
     def stop(self):
+        super().stop()
         for btn in self._buttons.values():
             btn.close()
         self._buttons.clear()
@@ -153,8 +226,8 @@ class ButtonCradle(CradleBase):
     main Python process to avoid interfering with audio subprocesses.
     """
 
-    def __init__(self, sides: list):
-        super().__init__()
+    def __init__(self, sides: list, hangup_debounce: float = HANGUP_DEBOUNCE):
+        super().__init__(hangup_debounce)
         self._sides = sides
         self._running = False
         self._proc: subprocess.Popen | None = None
@@ -198,6 +271,7 @@ class ButtonCradle(CradleBase):
                 print(f"  [button] Side {label}: {state}")
 
     def stop(self):
+        super().stop()
         self._running = False
         if self._proc:
             try:
@@ -260,8 +334,8 @@ class HybridCradle(CradleBase):
 
     PINS = {"A": 17, "B": 27}
 
-    def __init__(self, sides: list):
-        super().__init__()
+    def __init__(self, sides: list, hangup_debounce: float = HANGUP_DEBOUNCE):
+        super().__init__(hangup_debounce)
         self._sides = sides
         self._buttons = {}
         self._button_proc: subprocess.Popen | None = None
@@ -280,6 +354,7 @@ class HybridCradle(CradleBase):
             btn.when_released = lambda s=side: self._gpio_hangup(s)
             self._buttons[side] = btn
             self._off_hook[side] = btn.is_pressed
+            self._raw_off_hook[side] = btn.is_pressed
             state = "OFF HOOK" if btn.is_pressed else "ON HOOK"
             print(f"  [gpio] Side {side}: pin {pin} → {state}")
 
@@ -301,16 +376,14 @@ class HybridCradle(CradleBase):
             self._button_thread.start()
 
     def _gpio_pickup(self, side: str):
-        self._off_hook[side] = True
+        # Logged as the raw switch reading — a reading that only cancels a
+        # pending hangup is deliberately invisible to the session.
         print(f"  [gpio] Side {side}: OFF HOOK")
-        if self._on_pickup:
-            self._on_pickup(side)
+        self._set_hook(side, True)
 
     def _gpio_hangup(self, side: str):
-        self._off_hook[side] = False
         print(f"  [gpio] Side {side}: ON HOOK")
-        if self._on_hangup:
-            self._on_hangup(side)
+        self._set_hook(side, False)
 
     def _read_buttons(self):
         """Read POP button presses from helper subprocess — toggles state."""
@@ -325,6 +398,7 @@ class HybridCradle(CradleBase):
                 print(f"  [button] Side {label}: {state}")
 
     def stop(self):
+        super().stop()
         self._running = False
         # Stop GPIO
         for btn in self._buttons.values():
@@ -349,8 +423,9 @@ class DemoCradle(CradleBase):
     """Auto-cycles through sessions for headless testing without GPIO."""
 
     def __init__(self, call_duration: float = 30.0, pause_between: float = 10.0,
-                 pickup_delay: float = 5.0):
-        super().__init__()
+                 pickup_delay: float = 5.0,
+                 hangup_debounce: float = HANGUP_DEBOUNCE):
+        super().__init__(hangup_debounce)
         self._call_duration = call_duration
         self._pause_between = pause_between
         self._pickup_delay = pickup_delay
@@ -370,18 +445,14 @@ class DemoCradle(CradleBase):
             if not self._running:
                 return
             print("  [demo] Side A picks up")
-            self._off_hook["A"] = True
-            if self._on_pickup:
-                self._on_pickup("A")
+            self._set_hook("A", True)
 
             # Side B picks up after delay
             time.sleep(self._pickup_delay)
             if not self._running:
                 return
             print("  [demo] Side B picks up")
-            self._off_hook["B"] = True
-            if self._on_pickup:
-                self._on_pickup("B")
+            self._set_hook("B", True)
 
             # Conversation
             time.sleep(self._call_duration)
@@ -390,46 +461,44 @@ class DemoCradle(CradleBase):
 
             # Side A hangs up
             print("  [demo] Side A hangs up")
-            self._off_hook["A"] = False
-            if self._on_hangup:
-                self._on_hangup("A")
+            self._set_hook("A", False)
 
             # Side B hangs up shortly after
             time.sleep(3)
             if not self._running:
                 return
             print("  [demo] Side B hangs up")
-            self._off_hook["B"] = False
-            if self._on_hangup:
-                self._on_hangup("B")
+            self._set_hook("B", False)
 
             # Pause before next cycle
             time.sleep(self._pause_between)
 
     def stop(self):
+        super().stop()
         self._running = False
         if self._thread:
             self._thread.join(timeout=2)
 
 
-def create_cradle(mode: str = "gpio", sides: list | None = None) -> CradleBase:
+def create_cradle(mode: str = "gpio", sides: list | None = None,
+                  hangup_debounce: float = HANGUP_DEBOUNCE) -> CradleBase:
     """Factory: create the appropriate cradle implementation.
 
-    Modes: "gpio", "keyboard", "button", "demo"
-    The "button" mode requires sides with input_dev populated.
+    Modes: "gpio", "keyboard", "button", "hybrid", "demo"
+    The "button" and "hybrid" modes require sides with input_dev populated.
     """
     if mode == "demo":
-        return DemoCradle()
+        return DemoCradle(hangup_debounce=hangup_debounce)
     if mode == "gpio":
-        return GPIOCradle()
+        return GPIOCradle(hangup_debounce)
     if mode == "button":
         if not sides:
             raise RuntimeError("Button cradle requires sides with input devices")
-        return ButtonCradle(sides)
+        return ButtonCradle(sides, hangup_debounce)
     if mode == "hybrid":
         if not sides:
             raise RuntimeError("Hybrid cradle requires sides with input devices")
-        return HybridCradle(sides)
+        return HybridCradle(sides, hangup_debounce)
     if mode == "keyboard":
-        return KeyboardCradle()
+        return KeyboardCradle(hangup_debounce)
     raise ValueError(f"Unknown cradle mode: {mode!r}")

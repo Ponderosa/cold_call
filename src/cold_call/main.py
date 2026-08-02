@@ -62,7 +62,7 @@ def _print_banner(config):
     print(f"  Python:     {platform.python_version()}")
     print(f"  Uptime:     {_get_uptime()}")
     print(f"  Station:    {config.name}")
-    print(f"  Cradle:     {config.cradle}")
+    print(f"  Cradle:     {config.cradle} (hangup debounce {config.hangup_debounce}s)")
     print(f"  Cooldown:   {config.cooldown}s")
     print(f"  Prompts:    A={config.prompts.side_a}, B={config.prompts.side_b}")
     print(f"  Audio:      {config.background_audio or 'none'}")
@@ -150,7 +150,8 @@ def main():
     else:
         cradle_mode = config.cradle
 
-    cradle = create_cradle(mode=cradle_mode, sides=sides)
+    cradle = create_cradle(mode=cradle_mode, sides=sides,
+                           hangup_debounce=config.hangup_debounce)
     if cradle_mode == "demo":
         print("\n** Demo mode — auto-cycling sessions **")
     elif cradle_mode == "keyboard":

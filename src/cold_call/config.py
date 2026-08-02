@@ -28,6 +28,9 @@ class StationConfig:
     name: str = "cold_call"
     cradle: str = "gpio"
     cooldown: float = 1.0
+    # Seconds a handset must stay on the cradle to count as a real hangup.
+    # Visitors unfamiliar with landlines often tap the cradle and lift again.
+    hangup_debounce: float = 2.0
     background_audio: str = ""
     prompts: PromptsConfig = field(default_factory=PromptsConfig)
     printer: PrinterConfig = field(default_factory=PrinterConfig)
@@ -59,6 +62,7 @@ def load_config(path: Path | None = None) -> StationConfig:
         name=data.get("name", "cold_call"),
         cradle=data.get("cradle", "gpio"),
         cooldown=float(data.get("cooldown", 1.0)),
+        hangup_debounce=float(data.get("hangup_debounce", 2.0)),
         background_audio=data.get("background_audio", ""),
         prompts=prompts,
         printer=printer,
