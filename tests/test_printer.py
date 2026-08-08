@@ -131,6 +131,44 @@ def test_connection_unavailable_without_printer():
     assert pc.available is False
 
 
+def test_print_prompt_cuts_after_each_dispatch(monkeypatch, side_a):
+    """Each dispatch is cut so it comes off as its own receipt.
+
+    print_prompt swallows exceptions, so without this the cut could vanish
+    or throw and every test would still pass.
+    """
+    from cold_call.printer import PrinterConnection
+
+    calls = []
+
+    class _Fake:
+        def __init__(self, dev):
+            pass
+
+        def _raw(self, payload):
+            calls.append("raw")
+
+        def ln(self, count=1):
+            calls.append("ln")
+
+        def cut(self, *args, **kwargs):
+            calls.append("cut")
+
+        def close(self):
+            calls.append("close")
+
+    monkeypatch.setattr("cold_call.printer.File", _Fake)
+
+    pc = PrinterConnection(side_a)
+    pc.print_prompt("Do you feel seen?", theme="apathy", dispatch_num=1)
+
+    assert "cut" in calls, "dispatch was not cut — receipts will run together"
+    # order matters: cutting before the feed would slice through the receipt
+    assert calls.index("cut") > calls.index("raw")
+    assert calls.index("cut") > calls.index("ln")
+    assert pc._printer is not None, "print_prompt failed and dropped the handle"
+
+
 def test_print_calls_are_noops_without_printer():
     """Every public print path degrades quietly when no printer was paired."""
     from cold_call.printer import PrinterConnection

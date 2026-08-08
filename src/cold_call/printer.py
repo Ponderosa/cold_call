@@ -111,6 +111,7 @@ class PrinterConnection:
                                          dispatch_num=dispatch_num)
             _print_raster(p, dispatch.rotate(180))
             p.ln(4)
+            p.cut()
         except Exception as e:
             print(f"  WARNING: Printer {self.side.label} failed mid-print: {e}")
             self.close()
