@@ -72,8 +72,20 @@ dispatches on the incoming byte:
 0x9842  cmp   r2, #0xff
 ```
 
-The dispatched range is therefore **`0x14`-`0x1f`**, not the four bytes we
-originally assumed:
+A second stage sits above this one. At `0x97ee` the parser compares against
+`0x13`, branches to a handler for that value, sends anything greater to
+`0x9810` (the code above), and otherwise indexes a `tbb` table at `0x97f8`
+covering `0x00`-`0x12`. So the parser indexes the **whole `0x00`-`0x20` range**
+plus `0xff`.
+
+Being indexed is not the same as being actioned. `0x0b`-`0x0f` branch to a
+shared stub at `0x9904`, and several other table entries land in runs of
+`0xbf00` NOPs that fall through to common code — functionally the same as the
+stub. Distinguishing a real handler from a fallthrough needs each convergence
+point followed, which has not been done. Note also that `0x00` is in the table
+and every receipt is mostly `NUL`, so dispatch alone is clearly not harmful.
+
+The bytes handled by the `0x9810` stage are:
 
 | Byte | Name | Dispatched via |
 |---|---|---|
@@ -123,6 +135,44 @@ receipt out of 1.07 million, or 0.085% of pixels. Not perceptible.
 and asserts that no byte in the dispatched range survives. It keeps its own
 copy of the byte list so the test is the specification rather than an echo of
 the implementation.
+
+## How a printer actually bricks
+
+Entering IAP mode is a deliberate code path, not memory corruption:
+
+| Address | What it does |
+|---|---|
+| `0x13950` | `NVIC_SystemReset` — reads AIRCR, masks PRIGROUP, ORs `0x05fa0000`, adds `4` (`SYSRESETREQ`), stores to `0xe000ed0c`, then spins at `b .` |
+| `0x139aa` | IAP entry — checks/stores magic `0x12345678`, then calls `0x13950` |
+| `0x13a44` | Reads three bytes from the receive stream and calls `0x139aa` if they are `0x18 0x19 0x01` |
+| `0xeb60` | Blocking get-next-byte from the receive ring buffer (spins on a count, reads `buf[idx]`, increments) |
+
+So the documented brick sequence is **`18 19 01`** — CAN, EM, `0x01` — arriving
+consecutively in the byte stream.
+
+**Caveat: `0x13a44` has not been shown to be reachable.** A linear sweep of the
+whole image finds no `bl` and no `b` targeting it, and no 32-bit pointer to it
+or to `0x13a45`. It is either invoked register-indirect from a dispatch table
+that has not been resolved, or it is dead code. What the function *would* do if
+called is unambiguous; that it is wired up is not established.
+
+A second IAP path exists at `0x13858`: a state byte compared against `3`, and
+if equal, `0x139aa` is called. What sets that byte is not known. There is also
+a button-polling path at `0x13b48` that reaches `NVIC_SystemReset` after ~0x12
+poll iterations, which is presumably the intended hardware recovery combo.
+
+### Why this matters for the sanitizer
+
+The old table did not touch `0x18` or `0x19`. Across the 175-prompt corpus it
+left **25,291** `CAN` bytes and — more to the point — **250 occurrences of the
+two-byte prefix `18 19`**. Every one of those was a brick if the following
+pixel byte happened to be `0x01`. It never was, in this corpus. That is luck,
+not margin, and it matches the observed behaviour: one graphic bricked
+printers and the rest did not.
+
+The current table maps `0x18`->`0x38` and `0x19`->`0x39`, so there are zero
+`CAN` bytes in the output and the sequence is unreachable regardless of whether
+`0x13a44` is live.
 
 ## Still unverified
 
