@@ -14,7 +14,9 @@ from __future__ import annotations
 
 import pytest
 
-from cold_call.printer import _compose_dispatch, _print_raster, _sanitize_raster
+from cold_call.hardware import Side
+from cold_call.printer import (PrinterConnection, _compose_dispatch, _print_raster,
+                               _sanitize_raster)
 from cold_call.prompts import load_prompts
 
 # Bytes the firmware treats as the start of a command, listed independently of
@@ -49,7 +51,15 @@ DEPARTMENTS = [
 ]
 
 # GS v 0 m xL xH yL yH — everything after this is pixel data.
+RASTER_HEADER = b"\x1d\x76\x30\x00"
 HEADER_LEN = 8
+
+# The documented brick: 0x13a44 reads three stream bytes and jumps to the IAP
+# entry — magic 0x12345678, then NVIC_SystemReset — when they are CAN, EM, 0x01.
+# The printer reboots into its bootloader and stops being a printer.
+# Blocked today because 0x18 and 0x19 are both sanitized; asserted directly so
+# that trimming the byte list fails here and not at a museum.
+BRICK_SEQUENCE = b"\x18\x19\x01"
 
 
 class _CapturePrinter:
@@ -88,7 +98,11 @@ def test_corpus_is_fully_loaded():
 
 @pytest.mark.parametrize("theme,prompt", _all_dispatches())
 def test_no_command_bytes_in_raster(theme, prompt):
-    """No dispatch may emit a command-initiator byte in its pixel data."""
+    """No dispatch may emit a command-initiator byte in its pixel data.
+
+    Also asserts the brick sequence directly. Both checks share one render
+    because composing 175 dispatches is what makes this sweep slow.
+    """
     payload = _raster_payload(prompt, theme)
 
     found = {b: payload.count(b) for b in COMMAND_BYTES if b in payload}
@@ -97,6 +111,78 @@ def test_no_command_bytes_in_raster(theme, prompt):
         + ", ".join(f"0x{b:02x} ({COMMAND_BYTES[b]}) x{n}" for b, n in found.items())
         + f" — prompt: {prompt!r}"
     )
+
+    assert BRICK_SEQUENCE not in payload, (
+        f"{theme}: raster contains the IAP brick sequence 18 19 01 — "
+        f"prompt: {prompt!r}"
+    )
+
+
+class _CaptureFile:
+    """Stands in for the escpos File so print_status runs without hardware."""
+
+    last = None
+
+    def __init__(self, dev):
+        self.dev = dev
+        self.writes = []
+        _CaptureFile.last = self
+
+    def _raw(self, payload):
+        self.writes.append(payload)
+
+    def ln(self, count=1):
+        pass
+
+    def cut(self):
+        pass
+
+    def close(self):
+        pass
+
+
+def _status_payload(monkeypatch, info) -> bytes:
+    """Pixel bytes of a status receipt, taken from the real print path."""
+    monkeypatch.setattr("cold_call.printer.File", _CaptureFile)
+    side = Side(label="A", card=1, card_id="Phone", printer_dev="/dev/null",
+                usb_bus="test", input_dev=None)
+
+    PrinterConnection(side).print_status(info)
+
+    raster = [w for w in _CaptureFile.last.writes if w.startswith(RASTER_HEADER)]
+    # print_status swallows exceptions, so an empty capture means it failed
+    # silently rather than that the receipt was clean.
+    assert len(raster) == 1, f"expected one raster write, captured {len(raster)}"
+    return raster[0][HEADER_LEN:]
+
+
+# The status receipt prints on every boot of every station, unattended, so it
+# reaches paper without anyone choosing to trigger it. Field values vary by
+# host, so vary them here too.
+STATUS_INFOS = [
+    pytest.param({"theme": "ambient_belonging", "host": "coldcall-1",
+                  "ip": "192.168.1.40", "uptime": "0:01", "station": "station1",
+                  "side": "A", "bus": "fd500000.pcie", "card": 1,
+                  "printer_dev": "/dev/usb/lp0"}, id="typical"),
+    pytest.param({"theme": "deferred_enthusiasm", "host": "coldcall-station-3",
+                  "ip": "10.0.0.255", "uptime": "128:59", "station": "station3",
+                  "side": "B", "bus": "fe980000.usb", "card": 12,
+                  "printer_dev": "/dev/usb/lp1"}, id="long-fields"),
+    pytest.param({}, id="empty-degraded"),
+]
+
+
+@pytest.mark.parametrize("info", STATUS_INFOS)
+def test_status_receipt_has_no_command_bytes(monkeypatch, info):
+    """The boot receipt goes through the same raster path and must be clean."""
+    payload = _status_payload(monkeypatch, info)
+
+    found = {b: payload.count(b) for b in COMMAND_BYTES if b in payload}
+    assert not found, (
+        "status receipt contains command bytes "
+        + ", ".join(f"0x{b:02x} ({COMMAND_BYTES[b]}) x{n}" for b, n in found.items())
+    )
+    assert BRICK_SEQUENCE not in payload
 
 
 def test_sanitizer_catches_every_command_byte():
@@ -147,6 +233,20 @@ def test_escape_targets_are_not_themselves_commands():
             f"0x{result:02x} ({COMMAND_BYTES.get(result)}), which is itself a "
             "command byte — the sanitizer would be manufacturing commands"
         )
+
+
+def test_brick_sequence_is_neutralised():
+    """Direct check: the IAP trigger cannot survive sanitizing.
+
+    Fast counterpart to the corpus sweep — feeds the sequence in explicitly
+    rather than waiting for it to occur naturally in pixel data.
+    """
+    raw = b"\x00\xff" + BRICK_SEQUENCE + b"\xff\x00" + BRICK_SEQUENCE
+    cleaned = _sanitize_raster(raw)
+
+    assert BRICK_SEQUENCE not in cleaned
+    assert b"\x18" not in cleaned
+    assert b"\x19" not in cleaned
 
 
 def test_sanitizing_is_idempotent():
