@@ -306,6 +306,14 @@ def _compose_dispatch(prompt: str, theme: str = "apathy",
         "the response of the other party.",
     ], size=20, pad_top=12, pad_bottom=16, line_spacing=4))
 
+    # Response worksheet — pre-baked by scripts/prep_drawings.py.
+    # Not every department has one; those receipts just end at the footer.
+    drawing_path = ASSETS / "images" / f"{theme}_drawing.png"
+    if drawing_path.exists():
+        sections.append(_render_separator(char="_", count=30))
+        sections.append(Image.open(drawing_path).convert("1"))
+        sections.append(Image.new("1", (PRINT_WIDTH, 24), 1))
+
     # Stitch all sections into one tall image
     total_h = sum(s.height for s in sections)
     composite = Image.new("1", (PRINT_WIDTH, total_h), 1)
