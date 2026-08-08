@@ -156,11 +156,11 @@ For development without hook switches connected. Keyboard input simulates cradle
 |---|---|
 | apathy | Bureau of Apathy (test only) |
 | ambient_belonging | Bureau of Ambient Belonging |
-| acceptable_proximity | Dept of Acceptable Proximity |
+| acceptable_proximity | Office of Acceptable Proximity |
 | conditional_invitations | Division of Conditional Invitations |
-| deferred_enthusiasm | Office of Deferred Enthusiasm |
-| minimal_engagement | Bureau of Minimal Engagement |
-| polite_indifference | Agency of Polite Indifference |
+| deferred_enthusiasm | Commission on Deferred Enthusiasm |
+| minimal_engagement | Administration for Minimal Engagement |
+| polite_indifference | Department of Polite Indifference |
 
 Stored as plain text files in `assets/prompts/`, one question per line. Each department has a matching seal image in `assets/images/` and metadata in `assets/departments.yaml`.
 
