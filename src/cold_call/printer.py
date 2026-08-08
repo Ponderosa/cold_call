@@ -325,19 +325,32 @@ def _compose_dispatch(prompt: str, theme: str = "apathy",
     return composite
 
 
+# Bytes the MHT-80E firmware treats as the start of a command. Taken from the
+# firmware image itself (XOR 0xa3, ARM Thumb): the parser at 0x9810 rebases the
+# byte by 0x14 and runs a `tbb` jump table over 0x14-0x1a, then compares ESC,
+# FS, GS, RS and US explicitly. DLE is handled by the separate real-time
+# command path. Anything in this range can put the printer into IAP
+# firmware-update mode — we have already lost one printer that way.
+COMMAND_BYTES = (0x10,) + tuple(range(0x14, 0x20))
+
+# Escape targets must not themselves be dispatched. Flipping bit 5 lands every
+# command byte in 0x30-0x3f, which the parser rejects outright, and still costs
+# a single pixel. The earlier substitutions flipped bit 0 or 1 instead, which
+# mapped ESC->SUB, FS->RS and GS->US — all three of them live commands — so the
+# sanitizer was manufacturing the very bytes it existed to remove.
+_ESCAPE_BIT = 0x20
+
+
 def _sanitize_raster(data: bytes) -> bytes:
     """Remove ESC/POS command-initiator bytes from raster data.
 
     The MHT-80E firmware erroneously scans raster pixel data for command
-    sequences, which can trigger IAP firmware-update mode or other dangerous
-    states. We replace the four command-initiator bytes with safe neighbors
-    (1 bit flip = 1 pixel change, visually imperceptible).
+    sequences. Each dangerous byte is replaced by a single bit flip, which
+    moves one pixel and is visually imperceptible.
     """
     table = bytearray(range(256))
-    table[0x10] = 0x11  # DLE — flip bit 0
-    table[0x1b] = 0x1a  # ESC — flip bit 0
-    table[0x1c] = 0x1e  # FS  — flip bit 1
-    table[0x1d] = 0x1f  # GS  — flip bit 1
+    for b in COMMAND_BYTES:
+        table[b] = b ^ _ESCAPE_BIT
     return data.translate(bytes(table))
 
 
