@@ -280,11 +280,13 @@ def _compose_dispatch(prompt: str, theme: str = "apathy",
     # Separator
     sections.append(_render_separator())
 
-    # Instructions
-    sections.append(_render_text([
-        "Please interview and record",
-        "the response of the other party.",
-    ], size=20, pad_top=12, pad_bottom=4, line_spacing=4))
+    # Department identity
+    sections.append(_render_text([dept_name.upper()], font_path=FONT_BOLD, size=20,
+                                  pad_top=12, pad_bottom=4))
+    if tagline:
+        sections.append(_render_text([f'"{tagline}"'], size=16, pad_bottom=4))
+    else:
+        sections.append(Image.new("1", (PRINT_WIDTH, 4), 1))
 
     # Separator
     sections.append(_render_separator())
@@ -299,12 +301,10 @@ def _compose_dispatch(prompt: str, theme: str = "apathy",
 
     # Footer
     sections.append(_render_separator(char="_", count=30))
-    sections.append(_render_text([dept_name.upper()], font_path=FONT_BOLD, size=20,
-                                  pad_top=12, pad_bottom=4))
-    if tagline:
-        sections.append(_render_text([f'"{tagline}"'], size=16, pad_bottom=16))
-    else:
-        sections.append(Image.new("1", (PRINT_WIDTH, 16), 1))
+    sections.append(_render_text([
+        "Please interview and record",
+        "the response of the other party.",
+    ], size=20, pad_top=12, pad_bottom=16, line_spacing=4))
 
     # Stitch all sections into one tall image
     total_h = sum(s.height for s in sections)
