@@ -40,6 +40,38 @@ FORMAT = "S16_LE"
 ASSETS = Path(__file__).resolve().parent.parent.parent / "assets"
 AUDIO_DIR = ASSETS / "audio"
 
+# A POP Phone playback device takes ~1.05s to be released by ALSA after its
+# aplay is killed. Opening it again inside that window fails with
+# "Device or resource busy", so every open waits for the device to go idle
+# first rather than sleeping a guessed interval.
+DEVICE_FREE_TIMEOUT = 3.0
+_DEVICE_POLL = 0.02
+
+
+def _pcm_state(card: int) -> str | None:
+    """First line of the playback substream status, or None if unreadable."""
+    try:
+        with open(f"/proc/asound/card{card}/pcm0p/sub0/status") as f:
+            return f.readline().strip()
+    except OSError:
+        return None
+
+
+def wait_device_free(card: int, timeout: float = DEVICE_FREE_TIMEOUT) -> bool:
+    """Block until the card's playback device is closed. True if it freed.
+
+    Returns True immediately when the status file is unreadable — better to
+    attempt the open than to stall on a card we cannot introspect.
+    """
+    deadline = time.monotonic() + timeout
+    while True:
+        state = _pcm_state(card)
+        if state is None or state == "closed":
+            return True
+        if time.monotonic() >= deadline:
+            return False
+        time.sleep(_DEVICE_POLL)
+
 
 def wav_data_offset(path: str | Path) -> int:
     """Byte offset of a WAV's data chunk.
@@ -101,6 +133,11 @@ class SoundPlayer:
         def _preexec():
             os.setpgrp()  # new process group so we can kill the whole tree
             _set_pdeathsig()
+
+        # The previous sound's aplay may still be releasing the device.
+        if not wait_device_free(side.card):
+            print(f"  WARNING: card {side.card} still busy after "
+                  f"{DEVICE_FREE_TIMEOUT}s — {Path(path).name} may not play")
 
         if loop:
             # Loop raw PCM: skip the header, play as raw so aplay doesn't stop
@@ -228,6 +265,13 @@ class CrossRoute:
         """
         self.stop()
         self._procs = []
+
+        # The connecting announcement is killed on one side moments before
+        # this runs, so its device may still be releasing.
+        for side in (side_a, side_b):
+            if not wait_device_free(side.card):
+                print(f"  WARNING: card {side.card} still busy — "
+                      f"cross-route may fail on that side")
 
         # Always create pipes in card-number order so each USB controller
         # opens capture before playback — DWC2 crackles if reversed.
