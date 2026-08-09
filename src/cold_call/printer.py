@@ -22,6 +22,7 @@ import yaml
 PRINT_WIDTH = 576  # 80mm at 203dpi (~72mm printable)
 TOP_MARGIN = 64    # 8mm of leader, also part of the cut clearance
 SIDE_MARGIN = 25   # 4.3% of width, matching the designers' worksheets
+RULE_WEIGHT = 3    # 0.53% of width, the single rule weight
 FEED_LINES = 2     # ~8.5mm at 1/6" per line — the rest of the clearance
 
 # A 2400px dispatch (172,800 raster bytes in one GS v 0) desynced both
@@ -340,8 +341,20 @@ def _wrap_to_width(text: str, font_path: str, size: int, tracking: int,
     return balanced
 
 
-def _render_separator(char="-", count=32):
-    return _render_text([char * count], size=20, pad_top=4, pad_bottom=4)
+def _render_separator(pad_top=11, pad_bottom=11):
+    """A drawn rule spanning the column.
+
+    Previously a row of hyphens or underscores set as text, which left the
+    rule ragged, short of the column, and at whatever weight the face happened
+    to give. One drawn weight throughout — see docs/DESIGN.md.
+    """
+    img = Image.new("1", (PRINT_WIDTH, pad_top + RULE_WEIGHT + pad_bottom), 1)
+    ImageDraw.Draw(img).rectangle(
+        [SIDE_MARGIN, pad_top,
+         PRINT_WIDTH - SIDE_MARGIN - 1, pad_top + RULE_WEIGHT - 1],
+        fill=0,
+    )
+    return img
 
 
 def _compose_parts(prompt: str, theme: str = "apathy",
@@ -425,7 +438,7 @@ def _compose_parts(prompt: str, theme: str = "apathy",
     sections.append(Image.new("1", (PRINT_WIDTH, 24), 1))
 
     # Footer
-    sections.append(_render_separator(char="_", count=30))
+    sections.append(_render_separator())
     sections.append(_render_text([
         "Please interview and record",
         "the response of the other party.",
@@ -436,7 +449,9 @@ def _compose_parts(prompt: str, theme: str = "apathy",
     worksheet = []
     drawing_path = ASSETS / "images" / f"{theme}_drawing.png"
     if drawing_path.exists():
-        worksheet.append(_render_separator(char="_", count=30))
+        # No rule opening this part. The instructions already close on one, and
+        # the artwork carries its own — three rules in a row, two of them doing
+        # the same job. Space divides it instead.
         worksheet.append(Image.open(drawing_path).convert("1"))
         worksheet.append(Image.new("1", (PRINT_WIDTH, 24), 1))
 
