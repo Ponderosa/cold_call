@@ -24,6 +24,14 @@ if TYPE_CHECKING:
     from cold_call.hardware import Side
 
 # Famous phone numbers for DTMF dialing fun
+# Two rings, then the hold bed. ring.wav is one North American cadence — 2s
+# of tone, 4s of silence — so it is looped and RING_SECONDS counts cycles.
+# HOLD_SECONDS must match the length of hold.wav: it plays once and fades
+# out, so a longer window leaves the caller in silence and a shorter one
+# cuts the fade.
+RING_SECONDS = 12
+HOLD_SECONDS = 60
+
 FAMOUS_NUMBERS = [
     "8675309",   # Jenny
     "5558132",   # Ghostbusters-ish
@@ -180,7 +188,7 @@ class Session:
                     self._state_event.clear()
                     print(f"  Ringing Side {self._receiver_label}...")
                     cp = self._player_for(self._caller_label)
-                    cp.play(self._caller, AUDIO_DIR / "ring_long.wav", loop=True)
+                    cp.play(self._caller, AUDIO_DIR / "ring.wav", loop=True)
 
                     # Buzzer ring on receiver's printer
                     buzzer_thread = None
@@ -203,8 +211,16 @@ class Session:
                         buzzer_thread = threading.Thread(target=_buzz_loop, daemon=True)
                         buzzer_thread.start()
 
-                    # Wait for receiver pickup or timeout
-                    picked_up = self._state_event.wait(timeout=30)
+                    # One ring, then hold. The caller is waiting on a stranger
+                    # who has not opted in yet, and a minute of ringback tells
+                    # them nothing; the hold message at least explains what
+                    # they are waiting for. hold.wav runs once and fades out —
+                    # the window is exactly as long as the file.
+                    picked_up = self._state_event.wait(timeout=RING_SECONDS)
+                    if not picked_up:
+                        cp.stop()
+                        cp.play(self._caller, AUDIO_DIR / "hold.wav")
+                        picked_up = self._state_event.wait(timeout=HOLD_SECONDS)
                     cp.stop()
                     buzzer_stop.set()
                     if buzzer_thread:
@@ -244,6 +260,37 @@ class Session:
             print(f"    Side {self._caller_label}: {caller_prompt[:60]}...")
             print(f"    Side {self._receiver_label}: {receiver_prompt[:60]}...")
 
+            # Side B hears its own dial tone and dialing, mirroring what the
+            # caller heard on pickup — both people got to make a call. Side A
+            # hears "both participants are now present" over the top of it;
+            # the clip is cut to roughly the same length so they land together.
+            cp = self._player_for(self._caller_label)
+            rp = self._player_for(self._receiver_label)
+            cp.play(self._caller, AUDIO_DIR / "both_present.wav")
+            rp.play(self._receiver, AUDIO_DIR / "dial_tone.wav")
+            self._wait_or_interrupted(2.5)
+            rp.stop()
+            rp.play(self._receiver, AUDIO_DIR / "dtmf_dial.wav")
+            rp.wait()
+            # Wait for A's line too — it is 4.1s against B's 4.1s of dial tone
+            # plus dialing, and stopping on B's finish clipped it mid-word.
+            cp.wait()
+
+            if self.state == State.HANGUP:
+                self._do_hangup()
+                continue
+
+            # Heads-up before the print. Nothing else is on the bus while the
+            # printers run, so this has to finish first.
+            cp.play(self._caller, AUDIO_DIR / "printing_questionnaire.wav")
+            rp.play(self._receiver, AUDIO_DIR / "printing_questionnaire.wav")
+            cp.wait()
+            rp.stop()
+
+            if self.state == State.HANGUP:
+                self._do_hangup()
+                continue
+
             if self.config.printer.enabled:
                 # Wait for any leftover print jobs from a previous call
                 for t in self._print_threads:
@@ -276,9 +323,19 @@ class Session:
                     t.join(timeout=15)
                 self._print_threads.clear()
 
-            # Announcement on both earpieces after printing
-            cp = self._player_for(self._caller_label)
-            rp = self._player_for(self._receiver_label)
+            # The briefing runs after the print, not before it, so the paper
+            # is already in their hands while the voice explains what to do
+            # with it. It is the only thing that teaches the conceit.
+            cp.play(self._caller, AUDIO_DIR / "briefing.wav")
+            rp.play(self._receiver, AUDIO_DIR / "briefing.wav")
+            cp.wait()
+            rp.stop()
+
+            if self.state == State.HANGUP:
+                self._do_hangup()
+                continue
+
+            # Announcement on both earpieces
             cp.play(self._caller, AUDIO_DIR / "connecting.wav")
             rp.play(self._receiver, AUDIO_DIR / "connecting.wav")
             cp.wait()

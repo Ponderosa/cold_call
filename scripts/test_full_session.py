@@ -40,8 +40,8 @@ player_a.wait()
 # --- RINGING ---
 print(f"  Side B ringing ({RING_DURATION}s)...")
 # Caller hears ring in their ear, receiver hears ring in their ear
-player_a.play(a, AUDIO_DIR / "ring_long.wav")
-player_b.play(b, AUDIO_DIR / "ring_long.wav")
+player_a.play(a, AUDIO_DIR / "ring.wav")
+player_b.play(b, AUDIO_DIR / "ring.wav")
 time.sleep(RING_DURATION)
 player_a.stop()
 player_b.stop()

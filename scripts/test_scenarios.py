@@ -143,8 +143,8 @@ def scenario_full_call(a, b, player_a, player_b, crossroute, printers, hangup_si
     player_a.wait()
 
     print("  Ringing both sides...")
-    player_a.play(a, AUDIO_DIR / "ring_long.wav", loop=True)
-    player_b.play(b, AUDIO_DIR / "ring_long.wav", loop=True)
+    player_a.play(a, AUDIO_DIR / "ring.wav", loop=True)
+    player_b.play(b, AUDIO_DIR / "ring.wav", loop=True)
 
     # Wait for B to pick up
     wait_for_toggle(sides_state, "B", True)
@@ -234,8 +234,8 @@ def scenario_no_answer(a, b, player_a, player_b):
     player_a.wait()
 
     print("  Ringing (10s timeout)...")
-    player_a.play(a, AUDIO_DIR / "ring_long.wav", loop=True)
-    player_b.play(b, AUDIO_DIR / "ring_long.wav", loop=True)
+    player_a.play(a, AUDIO_DIR / "ring.wav", loop=True)
+    player_b.play(b, AUDIO_DIR / "ring.wav", loop=True)
 
     # Wait 10s, checking for early keypress
     for _ in range(100):
@@ -277,8 +277,8 @@ def scenario_caller_abandons(a, b, player_a, player_b):
     player_a.wait()
 
     print("  Ringing... press A to hang up")
-    player_a.play(a, AUDIO_DIR / "ring_long.wav", loop=True)
-    player_b.play(b, AUDIO_DIR / "ring_long.wav", loop=True)
+    player_a.play(a, AUDIO_DIR / "ring.wav", loop=True)
+    player_b.play(b, AUDIO_DIR / "ring.wav", loop=True)
 
     wait_for_toggle(sides_state, "A", False)
     player_a.stop()
@@ -291,7 +291,7 @@ def scenario_sound_check(a, b, player_a, player_b):
     sounds = [
         ("dial_tone.wav", "Dial tone", 3),
         ("dtmf_dial.wav", "DTMF dial", None),
-        ("ring_long.wav", "Ring", 4),
+        ("ring.wav", "Ring", 4),
         ("connecting.wav", "Connecting", None),
         ("busy_tone.wav", "Busy tone", 4),
     ]
