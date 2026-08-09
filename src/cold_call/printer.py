@@ -37,8 +37,11 @@ MAX_RASTER_BYTES = 165_000
 RASTER_PAUSE = 0.4
 
 ASSETS = Path(__file__).resolve().parent.parent.parent / "assets"
-FONT_REG = str(ASSETS / "fonts" / "CourierPrime-Regular.ttf")
-FONT_BOLD = str(ASSETS / "fonts" / "CourierPrime-Bold.ttf")
+# One face for the whole receipt. The dispatch has to be read aloud by a
+# stranger holding a handset in a dim, crowded room — a signage problem, not a
+# document one. See docs/DESIGN.md.
+FONT_REG = str(ASSETS / "fonts" / "IBMPlexMono-Regular.ttf")
+FONT_BOLD = str(ASSETS / "fonts" / "IBMPlexMono-Bold.ttf")
 
 # Load department metadata for seal/name lookup
 _DEPTS_PATH = ASSETS / "departments.yaml"
@@ -389,7 +392,7 @@ def _compose_parts(prompt: str, theme: str = "apathy",
     else:
         form_line = f"Form {dispatch_num:04d}  |  Priority: {priority}"
     sections.append(_render_text(["APPROVED DIALOGUE"], font_path=FONT_BOLD,
-                                  size=28, pad_top=16, pad_bottom=4))
+                                  size=28, pad_top=16, pad_bottom=4, tracking=3))
     sections.append(_render_text([form_line], size=18, pad_bottom=12))
 
     # Separator
@@ -400,10 +403,10 @@ def _compose_parts(prompt: str, theme: str = "apathy",
                                 PRINT_WIDTH - 2 * SIDE_MARGIN)
     sections.append(_render_text(name_lines, font_path=FONT_BOLD,
                                   size=20, line_spacing=2, pad_top=12,
-                                  pad_bottom=4))
+                                  pad_bottom=4, tracking=2))
     if tagline:
-        sections.append(_render_text([f'"{tagline}"'], font_path=FONT_REG,
-                                     size=16, pad_bottom=4))
+        sections.append(_render_text([tagline.upper()], font_path=FONT_REG,
+                                     size=16, pad_bottom=4, tracking=2))
     else:
         sections.append(Image.new("1", (PRINT_WIDTH, 4), 1))
 
