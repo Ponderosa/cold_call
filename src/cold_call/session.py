@@ -184,26 +184,31 @@ class Session:
 
                     # Buzzer ring on receiver's printer
                     buzzer_thread = None
+                    # Owned by this ring phase, so the loop ends when the ring
+                    # does. Keying off self.state alone would run on after a
+                    # timeout — nothing clears WAITING_FOR_ANSWER on that path
+                    # until the next lap of the session loop, which waits for
+                    # the caller to hang up first.
+                    buzzer_stop = threading.Event()
                     receiver_printer = self._printers[self._receiver_label]
                     if self.config.printer.buzzer_ring and receiver_printer.available:
                         def _buzz_loop():
-                            while self.state == State.WAITING_FOR_ANSWER:
+                            while not buzzer_stop.is_set():
                                 try:
                                     receiver_printer.buzzer_ring(cycles=1)
                                 except Exception:
                                     pass
-                                for _ in range(20):
-                                    if self.state != State.WAITING_FOR_ANSWER:
-                                        return
-                                    time.sleep(0.1)
+                                if buzzer_stop.wait(2.0):
+                                    return
                         buzzer_thread = threading.Thread(target=_buzz_loop, daemon=True)
                         buzzer_thread.start()
 
                     # Wait for receiver pickup or timeout
                     picked_up = self._state_event.wait(timeout=30)
                     cp.stop()
+                    buzzer_stop.set()
                     if buzzer_thread:
-                        buzzer_thread.join(timeout=2)
+                        buzzer_thread.join(timeout=5)
 
                     if not picked_up:
                         # Ring timeout — play "not in service" to caller
