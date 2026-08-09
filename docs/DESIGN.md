@@ -54,15 +54,29 @@ face belongs to the authors and stays.
 
 ## Type
 
-**Two sizes.** One for the question, one for everything else.
+**Every size has a role.** The scale is functional, not minimal.
 
-| Role | Cap height | Em | Usage |
-|---|---|---|---|
-| Question | 4.1% of width | 34px | The question, and nothing else |
-| Supporting | 2.0% of width | 16px | Labels, instructions, identity, form data |
+| Size | Role |
+|---|---|
+| 40 | The question |
+| 28 | The banner — APPROVED DIALOGUE |
+| 20 | Department name; instructions |
+| 18 | Form number and priority |
+| 16 | Tagline |
 
-The ratio is 2:1. A third size requires an entry in this document justifying
-it.
+A real government form is an accreted object: a banner size, a body size, a
+fine-print size, and whatever was added the year a field was inserted. That
+mild untidiness is what makes it read as issued rather than art-directed, and
+it is deliberate here.
+
+The designers' worksheets carry two sizes in a 2:1 ratio, and that was
+initially taken as the rule. It is not: those are designed objects made by
+designers, and the receipt is meant to look like an artefact. The worksheets
+govern rule weight, margin and ink coverage, not the type scale.
+
+A new size is added when an element has a role no existing size serves, and it
+is recorded above. Sizes that drift without a role are sloppiness, not period
+character.
 
 **Caps are for labels, not for reading.** Short labels are set in caps and
 tracked out — FIVE, RSVP, EXPECTATION, and the header lines. Sentences are set
@@ -122,10 +136,9 @@ rewritten.
 
 1. Whether the question is set in caps or sentence case. Caps match the form
    tradition; the questions run to 95 characters, which is long for caps.
-2. Whether 34px is the right question size once printed. The figure is derived
-   from the designers' cap-height ratio, not from a printed proof.
-3. Whether the 2:1 ratio holds in the seals. Not yet measured.
-4. Whether the worksheets' baked-in top whitespace is design or export
+2. Whether 40px is the right question size. It is what the column and the
+   measure currently settle on, not a figure anyone chose.
+3. Whether the worksheets' baked-in top whitespace is design or export
    residue, and whether to trim it.
-5. What governs receipt length. Nothing currently limits how long a dispatch
+4. What governs receipt length. Nothing currently limits how long a dispatch
    may run beyond the raster ceiling.
