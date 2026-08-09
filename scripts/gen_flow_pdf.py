@@ -416,11 +416,11 @@ d.y -= 11
 d.c.setFillColor(DIM)
 d.c.setFont("CP", 6.8)
 _footer = (
-    "TARGET FLOW — not yet implemented. Everything from BOTH HANDSETS UP "
-    "onward is design intent, and the +Ns marks are estimates from an assumed "
-    "12s print, not measurements. Implemented today: pickup, dial tone, "
-    "dialing, ringback, printer buzzer, print, the operator line, cross-route "
-    "and hangup. Conversation length is unbounded."
+    "All of this is implemented in src/cold_call/session.py and has been run "
+    "on the hardware. Times before the receiver answers are exact. The +Ns "
+    "marks after it are clip lengths plus an assumed 12s print — the print "
+    "takes as long as it takes, so everything after it shifts with it. "
+    "Conversation length is unbounded."
 )
 for _line in wrap(_footer, "CP", 6.8, PAGE_W - 2 * M):
     d.c.drawString(M, d.y, _line)
