@@ -69,7 +69,14 @@ def compose_parts(prompt: str, theme: str = "apathy",
     """Render a dispatch as the images that will be printed, in reading order.
 
     Each part is sent as its own GS v 0 with a pause between, which keeps
-    every command well under the raster limit that desynced the printers.
+    every command far under the raster limit that desynced the printers. The
+    breaks are placed where the small feed the printer inserts between
+    commands lands on something that already looks like a division:
+
+        head       the seal
+        body       banner, procedure, question, field label
+        worksheet  the designers' artwork
+        foot       the agency's signature and sign-off
 
     Uses department metadata from the theme for the seal, name, and tagline.
     """
@@ -84,21 +91,22 @@ def compose_parts(prompt: str, theme: str = "apathy",
     if not seal_path.exists():
         seal_path = ASSETS / "images" / "ambient_belonging_seal_sm.png"
 
-    # Build sections top-to-bottom as they appear on the receipt
-    sections = []
-
+    # The head is its own raster: top margin and seal, nothing else.
     # Top margin (8mm). This prints last — the image is rotated 180° — so it
     # doubles as clearance before the cut, on top of the feed. It was 30mm
     # back when receipts came off as a continuous ribbon and the whitespace
     # was the only separation between them.
-    sections.append(Image.new("1", (PRINT_WIDTH, TOP_MARGIN), 1))
+    head = [Image.new("1", (PRINT_WIDTH, TOP_MARGIN), 1)]
 
     seal = Image.open(seal_path).convert("1")
     if seal.width < PRINT_WIDTH:
         centered = Image.new("1", (PRINT_WIDTH, seal.height), 1)
         centered.paste(seal, ((PRINT_WIDTH - seal.width) // 2, 0))
         seal = centered
-    sections.append(seal)
+    head.append(seal)
+
+    # Build sections top-to-bottom as they appear on the receipt
+    sections = []
 
     # Header
     form_id = dept.get("form", None)
@@ -178,8 +186,10 @@ def compose_parts(prompt: str, theme: str = "apathy",
     tail.append(render_text(wrap_to_width(SIGN_OFF, FONT_REG, 16, 1, COLUMN),
                             size=16, line_spacing=4, pad_bottom=20, tracking=1))
 
-    parts = [stack(sections)]
-    parts.append(stack(worksheet + tail if worksheet else tail))
+    parts = [stack(head), stack(sections)]
+    if worksheet:
+        parts.append(stack(worksheet))
+    parts.append(stack(tail))
     return parts
 
 
