@@ -17,8 +17,9 @@ from collections import Counter
 import pytest
 
 from cold_call.hardware import Side
-from cold_call.printer import (MAX_RASTER_BYTES, PrinterConnection, _compose_dispatch,
-                               _compose_parts, _print_raster, _sanitize_raster)
+from cold_call.printer import (MAX_RASTER_BYTES, PrinterConnection, _print_raster,
+                               _sanitize_raster)
+from cold_call.receipt import compose_dispatch, compose_parts
 from cold_call.prompts import load_prompts
 
 # Bytes the firmware treats as the start of a command, listed independently of
@@ -76,7 +77,7 @@ class _CapturePrinter:
 
 def _raster_payload(prompt: str, theme: str) -> bytes:
     """Return the pixel bytes for a dispatch, exactly as sent to the printer."""
-    dispatch = _compose_dispatch(prompt, theme=theme, dispatch_num=1)
+    dispatch = compose_dispatch(prompt, theme=theme, dispatch_num=1)
     cap = _CapturePrinter()
     _print_raster(cap, dispatch.rotate(180))
     return cap.data[HEADER_LEN:]
@@ -203,7 +204,7 @@ def test_dispatch_fits_in_one_raster_command(theme, prompt):
     reported ok. This is the only thing standing between a long prompt and
     two feet of noise.
     """
-    parts = _compose_parts(prompt, theme=theme, dispatch_num=1)
+    parts = compose_parts(prompt, theme=theme, dispatch_num=1)
 
     for index, part in enumerate(parts):
         size = (part.width // 8) * part.height

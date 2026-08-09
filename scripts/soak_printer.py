@@ -26,7 +26,8 @@ import sys
 import time
 
 from cold_call.hardware import Side, discover_sides
-from cold_call.printer import PrinterConnection, _compose_dispatch
+from cold_call.printer import PrinterConnection
+from cold_call.receipt import compose_dispatch
 from cold_call.prompts import load_prompts
 
 DEPARTMENTS = [
@@ -99,7 +100,7 @@ def soak(side: Side, work: list[tuple[str, str]], dry_run: bool) -> int:
 
         if dry_run:
             # Still compose it — that is where a bad glyph or asset would blow up.
-            img = _compose_dispatch(prompt, theme=theme, dispatch_num=i)
+            img = compose_dispatch(prompt, theme=theme, dispatch_num=i)
             print(f"  {label}: {img.width}x{img.height}  {prompt[:48]}")
             continue
 
@@ -150,7 +151,7 @@ def main():
         sys.exit("ERROR: no prompts loaded — check assets/prompts/.")
 
     # Estimate paper from the real composed heights of a sample.
-    sample = [_compose_dispatch(p, theme=t, dispatch_num=1) for t, p in work[:7]]
+    sample = [compose_dispatch(p, theme=t, dispatch_num=1) for t, p in work[:7]]
     avg_mm = sum(img.height for img in sample) / len(sample) / DOTS_PER_MM
     per_printer_m = avg_mm * len(work) / 1000
 

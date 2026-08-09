@@ -9,7 +9,7 @@ Usage:
 
 from pathlib import Path
 
-from cold_call.printer import _compose_dispatch
+from cold_call.receipt import compose_dispatch
 from cold_call.prompts import pick_one
 
 OUTPUT_DIR = Path(__file__).resolve().parent / "output"
@@ -29,7 +29,7 @@ def main():
 
     for i, theme in enumerate(DEPARTMENTS, start=1):
         prompt = pick_one(theme)
-        img = _compose_dispatch(prompt, theme=theme, dispatch_num=i)
+        img = compose_dispatch(prompt, theme=theme, dispatch_num=i)
 
         out_path = OUTPUT_DIR / f"{theme}.png"
         img.save(str(out_path))

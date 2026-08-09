@@ -6,45 +6,47 @@ _log.info("test_printer.py: importing struct, PIL...")
 import struct
 from PIL import Image
 _log.info("test_printer.py: importing cold_call.printer (triggers escpos + Pillow)...")
-from cold_call.printer import (
-    _render_text, _render_separator, _wrap_to_width, _compose_dispatch,
-    _print_raster, PRINT_WIDTH, SIDE_MARGIN, FONT_REG, FONT_BOLD,
+from cold_call.printer import _print_raster
+from cold_call.receipt import compose_dispatch
+from cold_call.typography import (
+    render_text, render_separator, wrap_to_width,
+    PRINT_WIDTH, SIDE_MARGIN, FONT_REG, FONT_BOLD,
 )
 _log.info("test_printer.py: imports complete")
 
 
 def test_render_text_dimensions():
-    img = _render_text(["Hello"], size=24)
+    img = render_text(["Hello"], size=24)
     assert img.width == PRINT_WIDTH
     assert img.height > 0
     assert img.mode == "1"
 
 
 def test_render_text_multiline():
-    one_line = _render_text(["A"], size=24)
-    two_lines = _render_text(["A", "B"], size=24)
+    one_line = render_text(["A"], size=24)
+    two_lines = render_text(["A", "B"], size=24)
     assert two_lines.height > one_line.height
 
 
 def test_render_text_padding():
-    no_pad = _render_text(["X"], size=24)
-    with_pad = _render_text(["X"], size=24, pad_top=20, pad_bottom=20)
+    no_pad = render_text(["X"], size=24)
+    with_pad = render_text(["X"], size=24, pad_top=20, pad_bottom=20)
     assert with_pad.height == no_pad.height + 40
 
 
 def test_render_separator():
-    img = _render_separator()
+    img = render_separator()
     assert img.width == PRINT_WIDTH
     assert img.mode == "1"
 
 
 def test_wrap_to_width_fits_on_one_line():
-    line = _wrap_to_width("Hello", FONT_BOLD, 40, 0, PRINT_WIDTH)
+    line = wrap_to_width("Hello", FONT_BOLD, 40, 0, PRINT_WIDTH)
     assert line == ["Hello"]
 
 
 def test_wrap_to_width_breaks_when_too_wide():
-    lines = _wrap_to_width(
+    lines = wrap_to_width(
         "What is the meaning of life and everything else besides",
         FONT_BOLD, 40, 0, PRINT_WIDTH - 2 * SIDE_MARGIN,
     )
@@ -62,7 +64,7 @@ def test_wrap_to_width_keeps_every_line_inside_the_column():
     font = ImageFont.truetype(FONT_BOLD, 40)
     draw = ImageDraw.Draw(Image.new("1", (1, 1)))
 
-    for line in _wrap_to_width(
+    for line in wrap_to_width(
         "What is something you recently could not bring yourself to care about",
         FONT_BOLD, 40, 0, max_width,
     ):
@@ -71,7 +73,7 @@ def test_wrap_to_width_keeps_every_line_inside_the_column():
 
 def test_wrap_to_width_cannot_break_a_single_word():
     """An unbreakable word overflows rather than being silently truncated."""
-    lines = _wrap_to_width("Supercalifragilisticexpialidocious", FONT_BOLD, 40,
+    lines = wrap_to_width("Supercalifragilisticexpialidocious", FONT_BOLD, 40,
                            0, PRINT_WIDTH - 2 * SIDE_MARGIN)
     assert lines == ["Supercalifragilisticexpialidocious"]
 
@@ -87,7 +89,7 @@ def test_wrap_to_width_balances_the_rag():
 
     text = "What group chats are you lurking in without participating?"
     max_width = PRINT_WIDTH - 2 * SIDE_MARGIN
-    lines = _wrap_to_width(text, FONT_BOLD, 40, 0, max_width)
+    lines = wrap_to_width(text, FONT_BOLD, 40, 0, max_width)
 
     font = ImageFont.truetype(FONT_BOLD, 40)
     draw = ImageDraw.Draw(Image.new("1", (1, 1)))
@@ -100,7 +102,7 @@ def test_wrap_to_width_balances_the_rag():
 
 
 def test_compose_dispatch_returns_image():
-    dispatch = _compose_dispatch("Test prompt?", theme="apathy", dispatch_num=1)
+    dispatch = compose_dispatch("Test prompt?", theme="apathy", dispatch_num=1)
     assert isinstance(dispatch, Image.Image)
     assert dispatch.width == PRINT_WIDTH
     assert dispatch.height > 0
@@ -108,7 +110,7 @@ def test_compose_dispatch_returns_image():
 
 
 def test_compose_dispatch_rotates():
-    dispatch = _compose_dispatch("Test?", theme="apathy")
+    dispatch = compose_dispatch("Test?", theme="apathy")
     rotated = dispatch.rotate(180)
     assert rotated.size == dispatch.size
 

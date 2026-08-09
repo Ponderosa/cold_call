@@ -15,7 +15,7 @@ from pathlib import Path
 
 from PIL import Image
 
-from cold_call.printer import PRINT_WIDTH
+from cold_call.typography import PRINT_WIDTH
 
 ROOT = Path(__file__).resolve().parent.parent
 SRC_DIR = ROOT / "assets" / "drawings"
