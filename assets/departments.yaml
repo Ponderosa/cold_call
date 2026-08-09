@@ -11,6 +11,8 @@ departments:
     form: null  # TBD — no designer form yet
     title: null  # TBD
     visual: null  # TBD
+    activity: null  # test department — no activity
+    consequence: a follow-up at some point
     prompt_file: apathy.txt
 
   polite_indifference:
@@ -22,6 +24,10 @@ departments:
     form: Form 1
     title: Map of Civility Through Distance
     visual: Seattle neighborhood map
+    activity: >-
+      Quote a highlight of your conversation, then put your receipt in the quad
+      on the chart that feels representative of the respondent's answer.
+    consequence: an unsolicited introduction
     prompt_file: polite_indifference.txt
 
   ambient_belonging:
@@ -33,6 +39,10 @@ departments:
     form: Form 2
     title: Placements of Togetherness
     visual: Polar/radar chart
+    activity: >-
+      Draw a line that represents the respondent's journey of belonging. If
+      desired, connect your line to another line on the board.
+    consequence: prolonged social ambiguity
     prompt_file: ambient_belonging.txt
 
   acceptable_proximity:
@@ -44,6 +54,10 @@ departments:
     form: Form 3
     title: Visualization of Proximity
     visual: Two skeletons reaching toward each other
+    activity: >-
+      Write a haiku inspired by the respondent's story (3 lines with 5, 7, and
+      5 syllables).
+    consequence: a recalculation of your permitted distance
     prompt_file: acceptable_proximity.txt
 
   minimal_engagement:
@@ -55,6 +69,9 @@ departments:
     form: Form 4
     title: Plot of Limited Participation
     visual: Grid/graph paper
+    activity: >-
+      Summarize the respondent's reason for minimally engaging in a single word.
+    consequence: expanded participation requirements
     prompt_file: minimal_engagement.txt
 
   conditional_invitations:
@@ -66,6 +83,10 @@ departments:
     form: Form 5
     title: Abstraction of Commitments
     visual: Lined paper with wide rows
+    activity: >-
+      Design an event invitation based on your conversation, and mark your
+      projected attendance.
+    consequence: a commitment without conditions
     prompt_file: conditional_invitations.txt
 
   deferred_enthusiasm:
@@ -77,4 +98,8 @@ departments:
     form: Form 6
     title: Map of Appropriate Excitement
     visual: Four-quadrant coordinate plane
+    activity: >-
+      Draw facial expressions representing the respondent's expected and actual
+      emotions about the situation.
+    consequence: a review of your enthusiasm levels
     prompt_file: deferred_enthusiasm.txt

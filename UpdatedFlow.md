@@ -87,61 +87,109 @@ Conversation length is unbounded; all other durations are fixed.
 ## The receipt, top to bottom
 
 The single footer line — "Please interview and record the response of the other party" — becomes
-three numbered steps wrapped around the question, so the receipt reads as the order you do things
-in and each department states its own activity on the paper. The department identity moves to the
-bottom, leaving the top of the receipt to the questionnaire itself.
+a numbered procedure wrapped around the question, so the receipt reads as the order you do things
+in and each department states its own activity on the paper. A notice above the steps sets the
+tone; the fourth step, posting the form, sits below the field because that is when it happens.
+The department signs the receipt off at the foot rather than heading it — the seal already names
+the agency at the top — and only a short centred mark separates it from the thanks, a beat
+rather than a break.
 
 | # | Element | Type | Change |
 |---|---|---|---|
 | 1 | 8mm top margin | — | — |
 | 2 | Department seal | image, 288px | — |
-| 3 | **DATA COLLECTION QUESTIONNAIRE** | bold 28 | **renamed** from APPROVED DIALOGUE (fits one line at 493px) |
-| 4 | `Form 2-0002` | reg 18 | **priority removed**; form number stays |
-| 5 | `- - - -` rule | — | — |
-| 6 | `(1) Ask this question.` | reg 20, left-aligned | **new** |
-| 7 | **The question** | bold 40, wrapped at 14 chars | — |
-| 8 | `(2) Listen to their response.` | reg 20, left-aligned | **new** |
-| 9 | `(3)` department activity | reg 20, left-aligned, hanging indent | **new** |
-| — | *(second raster starts)* | | |
-| 10 | `____` rule | — | — |
-| 11 | Open field for data entry | image | the department's worksheet |
-| 12 | `- - - -` rule | — | **new** |
-| 13 | **BUREAU OF AMBIENT BELONGING** | bold 20 | **moved** from the top |
-| 14 | *"Maintaining the Conditions for Togetherness"* | reg 16 | **moved** from the top |
+| 3 | **DATA COLLECTION QUESTIONNAIRE** | bold 28 | **renamed** from APPROVED DIALOGUE |
+| 4 | `Form 2-0002` | reg 16 | **priority removed**; form number stays |
+| 5 | Dashed rule | drawn, 2px | **drawn** rather than typed hyphens |
+| 6 | Notice — "Please follow the procedure below. Failure to comply may result in `<consequence>`." | reg 16 | **new**, consequence per department |
+| 7 | `(1) Ask the following question to the respondent:` | reg 18 | **new** |
+| 8 | The question | 36, all caps, thinned strokes, balanced wrap at 22 chars | **resized** from bold 40/14 |
+| 9 | `(2) Listen to their response.` | reg 18 | **new** |
+| 10 | `(3)` department activity | reg 18, hanging indent | **new** |
+| — | *(second raster starts — on the gap, so the printer's feed lands on whitespace)* | | |
+| 11 | Bounded data-entry field, caption inside | drawn | **replaces** the pasted worksheet PNG |
+| 12 | `(4) Post your form to the board with an adhesive seal.` | reg 18 | **new** |
+| 13 | Dashed rule | drawn, 2px | **new** |
+| 14 | **COMMISSION ON DEFERRED ENTHUSIASM** | bold 18 | **moved** to the foot |
+| 15 | *"Excitement at an Appropriate Pace"* | reg 16 | **moved** to the foot |
+| 16 | Short centred mark | drawn, 48px | **new** |
+| 17 | `Thank you for performing your civic duties.` | reg 16 | **new** |
 
-Steps 1 and 2 are the same on every receipt. Step 3 is the department's activity, and it is the
-last thing read before the open field:
+Four type sizes and no others: **16** for supporting detail (form number, tagline, notice,
+field caption, sign-off), **18** for the steps, **28** for the banner, **36** for the question.
+The question is set in caps and lighter than regular. Courier Prime ships regular and bold and
+nothing else, so the weight comes off the strokes at render time: drawn at 3x, downscaled, and
+thresholded dark enough that only the core of each stroke survives. `QUESTION_WEIGHT` in
+`printer.py` is the dial — lower is thinner, and it wants a test print before going much below
+60, since thin strokes can drop out on a thermal head.
+Bold does the rest of the work — the department name is bold at the step size, because it
+identifies the sender rather than heading the page.
+
+The question carries no frame and no rule. Step 1 ends on a colon pointing straight at it and
+the widest interval on the receipt sits above and below — that is what sets it apart. Its wrap
+is balanced, tightened as far as it can go without costing a line, so no question ends on a
+lone orphan word. At 40 with a 14-character wrap, the longest prompts became ten-line towers.
+
+The instructions wrap greedily to fill their lines: the steps take the full 45-character
+column, four of which go to the `(n) ` prefix, and the notice takes 51. Balancing them would only make every line
+narrower, which reads as heavier wrapping, not lighter.
+
+Four vertical intervals — 12 / 20 / 36 / 52px — and every gap is one of them. The widest sits
+above and below the question, which is most of what makes it read as the one thing on the page.
+
+Everything that is not centered starts on the same 40px margin: the notice, all four steps,
+the rules, and the field frames. Rules are drawn to that margin rather than typed out of
+hyphens, which is what makes them all the same length. There is no rule above the field — its
+frame is the boundary, and a rule stacked on a box just reads as a second, lighter box.
+
+Steps 1 through 3 sit above the field and step 4 below it. Steps 1, 2, and 4 are the same on every
+receipt; step 3 is the department's activity:
 
 ```
-(1) Ask this question.
+Please follow the procedure below. Failure to
+comply may result in prolonged social ambiguity.
 
-     WHAT'S A PLACE
-     WHERE YOU FELT
-    LIKE YOU BELONGED
-     IMMEDIATELY, NO
-    EFFORT REQUIRED?
+(1) Ask the following question to the
+    respondent:
+
+    What's a place where
+     you felt like you
+    belonged immediately,
+      no effort required?
 
 (2) Listen to their response.
 (3) Draw a line that represents the respondent's
     journey of belonging. If desired, connect your
     line to another line on the board.
+
+    [ field ]
+
+(4) Post your form to the board with an adhesive
+    seal.
 ```
 
-### Activity by department
+### Activity and field by department
 
-| Department | Step 3 |
-|---|---|
-| Bureau of Ambient Belonging | Draw a line that represents the respondent's journey of belonging. If desired, connect your line to another line on the board. |
-| Department of Polite Indifference | Quote a highlight of your conversation, then put your receipt in the quad on the chart that feels representative of the respondent's answer. |
-| Office of Acceptable Proximity | Write a haiku inspired by the respondent's story (3 lines with 5, 7, and 5 syllables). |
-| Administration for Minimal Engagement | Summarize the respondent's reason for minimally engaging in a single word. |
-| Division of Conditional Invitations | Design an event invitation based on your conversation, and mark your projected attendance. |
-| Commission on Deferred Enthusiasm | Draw facial expressions representing the respondent's expected and actual emotions about the situation. |
+Fields are drawn from primitives rather than pasted artwork, so every department shares one
+stroke weight, one margin, and one caption style. Every field is bounded: a 3px frame to the
+margins with its caption inside the top left, the way a form names its own boxes, and the
+contents inset within. An open panel and three ruled lines then read as the same kind of
+object. Curves are painted on a 3x canvas and scaled down — a 1-bit canvas cannot antialias,
+and drawn circles staircase without it.
 
-The Bureau of Apathy is the test department and has no activity.
+| Department | Step 3 | Field | Consequence |
+|---|---|---|---|
+| Bureau of Ambient Belonging | Draw a line that represents the respondent's journey of belonging. If desired, connect your line to another line on the board. | Open panel, START and END marks on the centerline | prolonged social ambiguity |
+| Department of Polite Indifference | Quote a highlight of your conversation, then put your receipt in the quad on the chart that feels representative of the respondent's answer. | Open space between two large quotation marks, as the original artwork had it | an unsolicited introduction |
+| Office of Acceptable Proximity | Write a haiku inspired by the respondent's story (3 lines with 5, 7, and 5 syllables). | Three rules named FIVE / SEVEN / FIVE beneath, as the original artwork had it | a recalculation of your permitted distance |
+| Administration for Minimal Engagement | Summarize the respondent's reason for minimally engaging in a single word. | One rule named ONE WORD beneath, as the original artwork had it | expanded participation requirements |
+| Division of Conditional Invitations | Design an event invitation based on your conversation, and mark your projected attendance. | Invite form as the original artwork had it: EVENT NAME rules, THUMBNAIL box, RSVP YES / MAYBE / NO | a commitment without conditions |
+| Commission on Deferred Enthusiasm | Draw facial expressions representing the respondent's expected and actual emotions about the situation. | Two full-width circles stacked, EXPECTED then ACTUAL, named underneath | a review of your enthusiasm levels |
 
-These strings belong in `assets/departments.yaml` as a new `activity:` key beside `name`,
-`tagline`, and `form` — that is already where `_compose_parts` reads department metadata
+The Bureau of Apathy is the test department and has no activity or field.
+
+The activity and consequence strings live in `assets/departments.yaml` as `activity:` and
+`consequence:` keys beside `name`, `tagline`, and `form` — that is already where `_compose_parts` reads department metadata
 from, so nothing about the step block needs hardcoding per department.
 
 The form number is generated, not authored: the department's `form` prefix plus a dispatch
