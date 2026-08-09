@@ -172,28 +172,31 @@ def compose_status(info: dict) -> Image.Image:
     dept_name = dept.get("name", "Bureau of Ambient Belonging")
 
     sections = [
-        render_text([dept_name.upper()], font_path=FONT_BOLD, size=20,
-                    pad_top=16, pad_bottom=4),
-        render_text(["System Status Report"], size=18, pad_bottom=8),
+        render_text(
+            wrap_to_width(dept_name.upper(), FONT_BOLD, 20, 2, COLUMN),
+            font_path=FONT_BOLD, size=20, line_spacing=2,
+            pad_top=16, pad_bottom=4, tracking=2,
+        ),
+        render_text(["SYSTEM STATUS REPORT"], size=18, pad_bottom=8, tracking=1),
         render_separator(),
     ]
 
     sections.append(render_text(
         [
-            f"Host:     {info.get('host', '?')}",
+            f"HOST:     {info.get('host', '?')}",
             f"IP:       {info.get('ip', '?')}",
-            f"Uptime:   {info.get('uptime', '?')}",
-            f"Station:  {info.get('station', '?')}",
-            f"Side:     {info.get('side', '?')}",
-            f"Bus:      {info.get('bus', '?')}",
-            f"Phone:    card {info.get('card', '?')}",
-            f"Printer:  {info.get('printer_dev', '?')}",
+            f"UPTIME:   {info.get('uptime', '?')}",
+            f"STATION:  {info.get('station', '?')}",
+            f"SIDE:     {info.get('side', '?')}",
+            f"BUS:      {info.get('bus', '?')}",
+            f"PHONE:    CARD {info.get('card', '?')}",
+            f"PRINTER:  {info.get('printer_dev', '?')}",
         ],
         size=20, align="left", line_spacing=4, pad_top=8, pad_bottom=8,
     ))
 
     sections.append(render_separator())
-    sections.append(render_text(["Ready for calls."], font_path=FONT_BOLD,
-                                size=22, pad_top=8, pad_bottom=16))
+    sections.append(render_text(["READY FOR CALLS."], font_path=FONT_BOLD,
+                                 size=22, pad_top=8, pad_bottom=16, tracking=2))
 
     return stack(sections)
