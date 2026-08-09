@@ -17,8 +17,8 @@ from collections import Counter
 import pytest
 
 from cold_call.hardware import Side
-from cold_call.printer import (PrinterConnection, _compose_dispatch, _print_raster,
-                               _sanitize_raster)
+from cold_call.printer import (MAX_RASTER_BYTES, PrinterConnection, _compose_dispatch,
+                               _compose_parts, _print_raster, _sanitize_raster)
 from cold_call.prompts import load_prompts
 
 # Bytes the firmware treats as the start of a command, listed independently of
@@ -90,7 +90,12 @@ def _all_dispatches():
 
 
 def test_corpus_is_fully_loaded():
-    """Guard the sweep itself — an empty corpus would pass every test below."""
+    """Guard the sweep itself — an empty corpus would pass every test below.
+
+    Deliberately count-agnostic: the prompt lists get rewritten per station,
+    so pinning a total would just mean editing this test every time. What
+    matters is that no department silently contributes nothing.
+    """
     pairs = list(_all_dispatches())
     assert pairs, "no prompts loaded at all — the sweep below would be vacuous"
 
@@ -186,6 +191,27 @@ def test_status_receipt_has_no_command_bytes(monkeypatch, info):
         + ", ".join(f"0x{b:02x} ({COMMAND_BYTES[b]}) x{n}" for b, n in found.items())
     )
     assert BRICK_SEQUENCE not in payload
+
+
+@pytest.mark.parametrize("theme,prompt", _all_dispatches())
+def test_dispatch_fits_in_one_raster_command(theme, prompt):
+    """No dispatch may exceed the printer's single-command raster limit.
+
+    A 2400px dispatch desynced both printers mid-image — the firmware quit
+    consuming pixel data, printed the rest as garbage text and ate the cut.
+    Nothing in software detected it; the write succeeded and the soak
+    reported ok. This is the only thing standing between a long prompt and
+    two feet of noise.
+    """
+    parts = _compose_parts(prompt, theme=theme, dispatch_num=1)
+
+    for index, part in enumerate(parts):
+        size = (part.width // 8) * part.height
+        assert size <= MAX_RASTER_BYTES, (
+            f"{theme}: part {index + 1}/{len(parts)} is {size:,} raster bytes, "
+            f"over the {MAX_RASTER_BYTES:,} limit — shorten the prompt or the "
+            f"layout. prompt: {prompt!r}"
+        )
 
 
 def test_sanitizer_catches_every_command_byte():

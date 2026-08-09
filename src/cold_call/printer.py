@@ -20,6 +20,20 @@ if TYPE_CHECKING:
 import yaml
 
 PRINT_WIDTH = 576  # 80mm at 203dpi (~72mm printable)
+TOP_MARGIN = 64    # 8mm of leader, also part of the cut clearance
+FEED_LINES = 2     # ~8.5mm at 1/6" per line — the rest of the clearance
+
+# A 2400px dispatch (172,800 raster bytes in one GS v 0) desynced both
+# printers mid-image: the firmware stopped consuming pixel data, printed the
+# remainder as garbage text and swallowed the cut. The largest dispatch that
+# printed cleanly was 169,200 bytes, so the real ceiling sits somewhere just
+# above it. Banding the raster would avoid the limit but leaves visible gaps
+# between bands, so instead we keep every dispatch comfortably under it.
+MAX_RASTER_BYTES = 165_000
+
+# Pause between the two raster commands of a dispatch, so the printer has time
+# to drain rather than accumulate both halves.
+RASTER_PAUSE = 0.4
 
 ASSETS = Path(__file__).resolve().parent.parent.parent / "assets"
 FONT_REG = str(ASSETS / "fonts" / "CourierPrime-Regular.ttf")
@@ -107,10 +121,22 @@ class PrinterConnection:
                 return
 
         try:
-            dispatch = _compose_dispatch(prompt, theme=theme,
-                                         dispatch_num=dispatch_num)
-            _print_raster(p, dispatch.rotate(180))
-            p.ln(4)
+            parts = _compose_parts(prompt, theme=theme,
+                                   dispatch_num=dispatch_num)
+            # The image is rotated 180°, so the last part in reading order is
+            # the first one off the head — print them back to front.
+            for index, part in enumerate(reversed(parts)):
+                if index:
+                    # Let the printer drain before the next command. If the
+                    # desync was a buffer filling up rather than a per-command
+                    # ceiling, sending both halves back to back would hit the
+                    # same wall as one big one.
+                    time.sleep(RASTER_PAUSE)
+                _print_raster(p, part.rotate(180))
+            # TOP_MARGIN plus this feed is the white band above the seal, and
+            # also the clearance the blade needs past the print head. Trimming
+            # it further starts cutting into the seal.
+            p.ln(FEED_LINES)
             p.cut()
         except Exception as e:
             print(f"  WARNING: Printer {self.side.label} failed mid-print: {e}")
@@ -234,13 +260,17 @@ def _wrap_prompt(text: str, max_chars: int = 18) -> list[str]:
     return lines
 
 
-def _compose_dispatch(prompt: str, theme: str = "apathy",
-                      dispatch_num: int = 0) -> Image.Image:
-    """Render an entire dispatch as one tall image (bottom to top).
+def _compose_parts(prompt: str, theme: str = "apathy",
+                   dispatch_num: int = 0) -> list[Image.Image]:
+    """Render a dispatch as the images that will be printed, in reading order.
 
-    Returns a single 1-bit image ready to print. Building it as one image
-    eliminates gaps between sections. Uses department metadata from the
-    theme to show the correct seal, name, and tagline.
+    Returns [body] or [body, worksheet]. The split is deliberate: each part
+    is sent as its own GS v 0, which keeps both well under the raster limit
+    that desynced the printers, and the small feed the printer inserts
+    between raster commands lands on the rule above the worksheet where it
+    reads as intentional spacing rather than a seam.
+
+    Uses department metadata from the theme for the seal, name, and tagline.
     """
     dept = _dept_info(theme)
     dept_name = dept.get("name", "Bureau of Apathy")
@@ -256,8 +286,11 @@ def _compose_dispatch(prompt: str, theme: str = "apathy",
     # Build sections top-to-bottom as they appear on the receipt
     sections = []
 
-    # Top margin (30mm ≈ 240px at 203dpi)
-    sections.append(Image.new("1", (PRINT_WIDTH, 240), 1))
+    # Top margin (8mm). This prints last — the image is rotated 180° — so it
+    # doubles as clearance before the cut, on top of the ln(4) feed. It was
+    # 30mm back when receipts came off as a continuous ribbon and the
+    # whitespace was the only separation between them.
+    sections.append(Image.new("1", (PRINT_WIDTH, TOP_MARGIN), 1))
 
     # Seal
     seal = Image.open(seal_path).convert("1")
@@ -309,21 +342,33 @@ def _compose_dispatch(prompt: str, theme: str = "apathy",
 
     # Response worksheet — pre-baked by scripts/prep_drawings.py.
     # Not every department has one; those receipts just end at the footer.
+    worksheet = []
     drawing_path = ASSETS / "images" / f"{theme}_drawing.png"
     if drawing_path.exists():
-        sections.append(_render_separator(char="_", count=30))
-        sections.append(Image.open(drawing_path).convert("1"))
-        sections.append(Image.new("1", (PRINT_WIDTH, 24), 1))
+        worksheet.append(_render_separator(char="_", count=30))
+        worksheet.append(Image.open(drawing_path).convert("1"))
+        worksheet.append(Image.new("1", (PRINT_WIDTH, 24), 1))
 
-    # Stitch all sections into one tall image
-    total_h = sum(s.height for s in sections)
-    composite = Image.new("1", (PRINT_WIDTH, total_h), 1)
+    parts = [_stack(sections)]
+    if worksheet:
+        parts.append(_stack(worksheet))
+    return parts
+
+
+def _stack(sections) -> Image.Image:
+    """Paste sections into one tall image, top to bottom."""
+    composite = Image.new("1", (PRINT_WIDTH, sum(s.height for s in sections)), 1)
     y = 0
     for section in sections:
         composite.paste(section, (0, y))
         y += section.height
-
     return composite
+
+
+def _compose_dispatch(prompt: str, theme: str = "apathy",
+                      dispatch_num: int = 0) -> Image.Image:
+    """The whole dispatch as one image — previews, tests, and measurement."""
+    return _stack(_compose_parts(prompt, theme=theme, dispatch_num=dispatch_num))
 
 
 # Bytes the MHT-80E firmware treats as the start of a command. Taken from the
