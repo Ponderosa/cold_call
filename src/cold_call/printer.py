@@ -400,13 +400,19 @@ def _compose_parts(prompt: str, theme: str = "apathy",
     # Header
     form_id = dept.get("form", None)
     priority = dept.get("priority", "Eventually")
-    if form_id:
-        form_line = f"{form_id}-{dispatch_num:04d}  |  Priority: {priority}"
-    else:
-        form_line = f"Form {dispatch_num:04d}  |  Priority: {priority}"
+    # Two fields, two lines. Set in caps the combined line runs past the
+    # column for three of the seven departments, and no size that fits is
+    # worth reading — a form lists its fields separately anyway.
+    form_lines = [
+        f"{form_id or 'FORM'}-{dispatch_num:04d}".upper(),
+        f"Priority: {priority}".upper(),
+    ]
     sections.append(_render_text(["APPROVED DIALOGUE"], font_path=FONT_BOLD,
                                   size=28, pad_top=16, pad_bottom=4, tracking=3))
-    sections.append(_render_text([form_line], size=18, pad_bottom=12))
+    # Caps everywhere except the question and the instructions — see
+    # docs/DESIGN.md. Only those two are read as sentences.
+    sections.append(_render_text(form_lines, size=18, line_spacing=2,
+                                 pad_bottom=12, tracking=1))
 
     # Separator
     sections.append(_render_separator())

@@ -78,9 +78,16 @@ A new size is added when an element has a role no existing size serves, and it
 is recorded above. Sizes that drift without a role are sloppiness, not period
 character.
 
-**Caps are for labels, not for reading.** Short labels are set in caps and
-tracked out — FIVE, RSVP, EXPECTATION, and the header lines. Sentences are set
-in sentence case.
+**Caps everywhere except the question and the instructions.** Those two are
+read, so they are set as sentences. Everything else is the form talking about
+itself — banner, form number, priority, department, tagline, field labels —
+and it is set in caps and tracked out.
+
+Caps cost width, and in a monospace face that cost is fixed. Where a caps line
+will not fit the column, it is broken into the fields it actually contains
+rather than set smaller: form number and priority are two lines, not one piped
+line, because in caps the combined line overran the column for three of the
+seven departments.
 
 **Tracking is what makes caps read as stamped.** The designers track their
 capitals generously on both the seals and the worksheet labels. Untracked caps
@@ -140,9 +147,7 @@ rewritten.
 
 ## Open questions
 
-1. Whether the question is set in caps or sentence case. Caps match the form
-   tradition; the questions run to 95 characters, which is long for caps.
-2. Whether 40px is the right question size. It is what the column and the
+1. Whether 40px is the right question size. It is what the column and the
    measure currently settle on, not a figure anyone chose.
-3. What governs receipt length. Nothing currently limits how long a dispatch
+2. What governs receipt length. Nothing currently limits how long a dispatch
    may run beyond the raster ceiling.
