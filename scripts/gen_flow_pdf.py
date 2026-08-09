@@ -101,36 +101,94 @@ ROWS = [
 
     ("sec", "RINGING"),
     ("row", "0:04",
-     [("n", "hears: ringback, looping"),
+     [("n", "hears: ringback, twice"),
       ("n", "brrr—brrr ... brrr—brrr"),
-      ("d", "waits up to 30 seconds")],
+      ("d", "two cadences, 12 seconds")],
      [("acc", ">>> THE PRINTER BUZZES"),
       ("n", "one buzz every 2 seconds"),
       ("d", "The handset does not ring. The "
             "receipt printer is the bell — it "
             "is what recruits a stranger who "
             "has not opted in yet.")]),
-    ("row", "0:10",
-     [("n", "ringback stops")],
+
+    ("sec", "ON HOLD"),
+    ("row", "0:16",
+     [("qc", "ringback ends, hears:"),
+      ("q", "“This call requires another "
+            "participant to continue holding "
+            "the line…”"),
+      ("d", "over hold music, recurring "
+            "every 20 seconds — one minute "
+            "of it, fading out at the end")],
+     [("d", "printer still buzzing, "
+            "unanswered")]),
+    ("row", "up to 1:16",
+     [("n", "hold music stops")],
      [("b", "LIFTS THE HANDSET")]),
 
-    ("sec", "BOTH HANDSETS UP — THE QUIET MOMENT"),
-    ("row", "0:10",
-     [("n", "hears: nothing"),
-      ("b", "the receipt prints"),
+    ("sec", "BOTH HANDSETS UP"),
+    ("row", "+0s",
+     [("qc", "hears:"),
+      ("q", "“Both participants are now "
+            "present.”")],
+     [("n", "hears: dial tone, then "
+            "touch-tone dialing")]),
+    ("note", "Side B hears its own dial tone and dialing on pickup, mirroring what "
+             "the caller heard when they first lifted the handset — both people got "
+             "to make a call. Side A's line runs at the same time and is timed to "
+             "roughly the same length."),
+
+    ("sec", "THE HEADS-UP"),
+    ("row", "+4s",
+     [("qc", "hears:"),
+      ("q", "“Printing your questionnaire "
+            "now.”")],
+     [("qc", "hears, the same moment:"),
+      ("q", "“Printing your questionnaire "
+            "now.”")]),
+
+    ("sec", "THE PRINT"),
+    ("row", "+6s",
+     [("b", "the receipt prints"),
       ("d", "a prompt from this side's "
             "department")],
-     [("n", "hears: nothing"),
-      ("b", "the receipt prints"),
+     [("b", "the receipt prints"),
       ("d", "a different prompt, from the "
             "other department")]),
-    ("note", "Both printers run before any audio starts. Takes 5–15 seconds, "
-             "and it is silent on both ends. This gap either reads as anticipation "
-             "or as “this thing is broken” — which one depends on whether "
-             "the paper is visibly moving where they can see it."),
+    ("note", "Both printers run with nothing else on the bus — the phones and the "
+             "printers share one USB controller, so audio never overlaps a print. "
+             "It is fast and loud on purpose: the machine chattering out a foot of "
+             "paper is the event, not a wait to be filled."),
+
+    ("sec", "THE BRIEFING"),
+    ("row", "+18s",
+     [("qc", "hears:"),
+      ("q", "“Greetings from the Seattle "
+            "Municipal Office of Social "
+            "Climate. You've been contracted "
+            "by one of our sub-agencies to "
+            "investigate a particular aspect "
+            "of the social phenomenon known "
+            "as the Seattle Freeze. You will "
+            "soon be connected to a fellow "
+            "investigator and given a printed "
+            "questionnaire. Read the question "
+            "aloud to them, then document "
+            "their response on your "
+            "questionnaire using the writing "
+            "instruments provided, before "
+            "posting your form to the board "
+            "with an adhesive seal.”")],
+     [("qc", "hears, the same moment:"),
+      ("q", "(the same line)")]),
+    ("note", "The briefing runs after the print, not before it, so the paper is "
+             "already in their hands while the voice explains what to do with it. "
+             "About 28 seconds. This is the only thing that teaches the conceit — "
+             "the receipt carries its procedure, but nobody reads a form they have "
+             "not been told to care about."),
 
     ("sec", "THE OPERATOR"),
-    ("row", "0:18",
+    ("row", "+46s",
      [("qc", "hears:"),
       ("q", "“One moment please, your call "
             "is being connected.”")],
@@ -139,7 +197,7 @@ ROWS = [
             "is being connected.”")]),
 
     ("sec", "CONNECTED"),
-    ("row", "0:22",
+    ("row", "+50s",
      [("n", "voice  ----------->"),
       ("n", "<-----------  earpiece"),
       ("d", "rain / city ambience mixed "
@@ -171,15 +229,23 @@ ROWS = [
 BRANCH = [
     ("sec", "IF NOBODY ANSWERS"),
     ("row", "0:04",
-     [("n", "hears: ringback, 30 seconds")],
+     [("n", "hears: ringback, twice (12s)")],
      [("d", "printer buzzing, unanswered")]),
-    ("row", "0:34",
+    ("row", "0:16",
+     [("n", "hold music, one minute, "
+            "message every 20 seconds"),
+      ("d", "fades out over the last 4 "
+            "seconds — the wait audibly "
+            "ends before the intercept says "
+            "so")],
+     [("d", "printer buzzing, unanswered")]),
+    ("row", "1:16",
      [("qc", "hears:"),
       ("q", "“We're sorry. The number you "
             "have dialed is not in service. "
             "Please hang up and try again.”")],
      [("d", "still on hook")]),
-    ("row", "0:40",
+    ("row", "1:22",
      [("n", "click, then busy tone until "
             "they hang up")],
      [("d", "—")]),
@@ -193,7 +259,7 @@ class Doc:
         self.c = canvas.Canvas(str(path), pagesize=letter)
         self.c.setTitle("Cold Calls — Interaction Flow")
         self.c.setAuthor("Seattle Design Nerds")
-        self.c.setSubject("Bureau of Ambient Belonging · SAM Remix 2026")
+        self.c.setSubject("Seattle Municipal Office of Social Climate · Seattle Design Festival 2026")
         self.y = 0
         self.page = 0
         self.new_page(first=True)
@@ -212,8 +278,8 @@ class Doc:
         c = self.c
         c.setFillColor(DIM)
         c.setFont("CP", 6.6)
-        c.drawString(M, M - 16, "Cold Calls · Bureau of Ambient Belonging "
-                                "· SAM Remix 2026")
+        c.drawString(M, M - 16, "Cold Calls · Office of Social Climate "
+                                "· Seattle Design Festival 2026")
         c.drawRightString(PAGE_W - M, M - 16, f"{self.page}")
 
     def title(self):
@@ -227,8 +293,8 @@ class Doc:
         c.setFont("CP", 7.6)
         c.setFillColor(DIM)
         c.drawRightString(PAGE_W - M, self.y - 16,
-                          "BUREAU OF AMBIENT BELONGING")
-        c.drawRightString(PAGE_W - M, self.y - 26, "SAM REMIX 2026")
+                          "OFFICE OF SOCIAL CLIMATE")
+        c.drawRightString(PAGE_W - M, self.y - 26, "SEATTLE DESIGN FESTIVAL 2026")
         self.y -= 44
         c.setStrokeColor(INK)
         c.setLineWidth(1.1)
@@ -349,8 +415,16 @@ d.c.line(M, d.y, PAGE_W - M, d.y)
 d.y -= 11
 d.c.setFillColor(DIM)
 d.c.setFont("CP", 6.8)
-d.c.drawString(M, d.y, "Timings from src/cold_call/session.py. Conversation "
-                       "length is unbounded; all other durations are fixed.")
+_footer = (
+    "TARGET FLOW — not yet implemented. Everything from BOTH HANDSETS UP "
+    "onward is design intent, and the +Ns marks are estimates from an assumed "
+    "12s print, not measurements. Implemented today: pickup, dial tone, "
+    "dialing, ringback, printer buzzer, print, the operator line, cross-route "
+    "and hangup. Conversation length is unbounded."
+)
+for _line in wrap(_footer, "CP", 6.8, PAGE_W - 2 * M):
+    d.c.drawString(M, d.y, _line)
+    d.y -= 8.6
 d.save()
 
 print(f"wrote {OUT}  ({OUT.stat().st_size:,} bytes)")
