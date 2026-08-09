@@ -52,6 +52,36 @@ Graphics supplied by the designers are never redrawn. The seals and worksheets
 are used as authored, and they carry their own serif lettering — that second
 face belongs to the authors and stays.
 
+## Structure
+
+The dispatch has four zones, in this order.
+
+| Zone | Contains |
+|---|---|
+| Head | Seal, banner, form number, priority |
+| Procedure | The notice, then the numbered steps |
+| Question | The question, alone |
+| Field | The field label, then the worksheet |
+| Foot | Agency name, tagline, sign-off |
+
+**The procedure is consolidated, not interleaved.** The steps are listed
+together and read once, rather than threaded between the question and the
+field. The reader is holding a handset in a loud room and needs the question
+to be the most findable thing on the page, not the object of step one — and
+they glance back mid-conversation, which rewards instructions living in one
+known place over a list to re-scan.
+
+The cost is accepted: interleaved steps teach a first-timer better, and a
+consolidated block is easier to skip. The audio narration does that teaching.
+
+**The agency signs off at the foot; it does not title the head.** The seal
+already names the agency at the top, so setting the name in type there as well
+says it twice. At the foot it closes the document, the way a form is signed.
+
+**The field label names what to produce; the artwork says where it goes.** A
+label that repeats a word the artwork already prints is wasted — the label for
+the one-word worksheet is REASON, not ONE WORD.
+
 ## Type
 
 **Every size has a role.** The scale is functional, not minimal.
@@ -60,9 +90,8 @@ face belongs to the authors and stays.
 |---|---|
 | 40 | The question |
 | 28 | The banner — APPROVED DIALOGUE |
-| 20 | Department name; instructions |
-| 18 | Form number and priority |
-| 16 | Tagline |
+| 20 | Form number and priority; the procedure; the field label; the agency name; everything on the status receipt |
+| 16 | The tagline and the sign-off — the signature block at the foot |
 
 A real government form is an accreted object: a banner size, a body size, a
 fine-print size, and whatever was added the year a field was inserted. That
@@ -89,6 +118,10 @@ rather than set smaller: form number and priority are two lines, not one piped
 line, because in caps the combined line overran the column for three of the
 seven departments.
 
+The sign-off is prose and stays in sentence case. It is the form thanking the
+reader rather than labelling itself, which puts it with the question and the
+instructions.
+
 **Tracking is what makes caps read as stamped.** The designers track their
 capitals generously on both the seals and the worksheet labels. Untracked caps
 read as merely typed.
@@ -111,7 +144,18 @@ redistributed over the same line count to even the rag.
 **Margin is 25px each side** — 4.3% of width. An element may claim more if it
 needs the room; none may claim less.
 
-**Rule weight is 3px** — 0.53% of width. One weight throughout.
+**Zone dividers are a double rule** — 3px over 2px, separated by 6px, spanning
+the column. Doubled to tell them apart from the rules inside the designers'
+worksheets, which are lines to write on: at a single weight the two read as
+the same kind of object, and nothing distinguished "this divides a section"
+from "write here". Thick over thin is the ledger and form convention.
+
+**A single 3px rule is a mark, not a divider** — 0.53% of width, measured off
+the worksheets. Used for the short rule that closes the sign-off.
+
+2px is the floor the medium allows, and the thin rule sits on it. It survives
+because it is a long continuous horizontal, the most forgiving shape for a
+thin stroke under dot spread. Nothing else on the receipt may be that thin.
 
 **Space separates before a rule does.** A rule is for a genuine division, not
 for spacing.

@@ -86,6 +86,10 @@ def wrap_to_width(text: str, font_path: str, size: int, tracking: int,
     """
     font = ImageFont.truetype(font_path, size)
     draw = ImageDraw.Draw(Image.new("1", (1, 1)))
+    # Collapse runs of whitespace up front. Text that fits is returned
+    # untouched and text that wraps is rejoined on single spaces, so without
+    # this the two paths disagree about spacing.
+    text = " ".join(text.split())
 
     def width(s: str) -> float:
         return sum(draw.textlength(c, font=font) for c in s) + tracking * (len(s) - 1)
@@ -154,19 +158,37 @@ def wrap_to_width(text: str, font_path: str, size: int, tracking: int,
     return balanced
 
 
-def render_separator(pad_top=11, pad_bottom=11):
-    """A drawn rule spanning the column.
-
-    Previously a row of hyphens or underscores set as text, which left the
-    rule ragged, short of the column, and at whatever weight the face happened
-    to give. One drawn weight throughout — see docs/DESIGN.md.
-    """
+def render_rule(width: int = COLUMN, pad_top: int = 11, pad_bottom: int = 11):
+    """A drawn rule of a given width, centred."""
     img = Image.new("1", (PRINT_WIDTH, pad_top + RULE_WEIGHT + pad_bottom), 1)
+    x0 = (PRINT_WIDTH - width) // 2
     ImageDraw.Draw(img).rectangle(
-        [SIDE_MARGIN, pad_top,
-         PRINT_WIDTH - SIDE_MARGIN - 1, pad_top + RULE_WEIGHT - 1],
-        fill=0,
-    )
+        [x0, pad_top, x0 + width - 1, pad_top + RULE_WEIGHT - 1], fill=0)
+    return img
+
+
+def render_separator(pad_top=11, pad_bottom=11):
+    """A double rule — the divider between zones of the receipt.
+
+    Doubled to tell it apart from the rules inside the designers' worksheets,
+    which are lines to write on. Single rules at the same weight read as the
+    same kind of object, so nothing distinguished "this divides a section"
+    from "write here". Thick over thin is the ledger and form convention.
+
+    The thin rule is 2px, which is the floor the medium allows; it survives
+    because it is a long continuous horizontal, the most forgiving shape for
+    a thin stroke under dot spread.
+    """
+    thin = 2
+    gap = 6
+    height = pad_top + RULE_WEIGHT + gap + thin + pad_bottom
+    img = Image.new("1", (PRINT_WIDTH, height), 1)
+    draw = ImageDraw.Draw(img)
+    right = PRINT_WIDTH - SIDE_MARGIN - 1
+    draw.rectangle([SIDE_MARGIN, pad_top,
+                    right, pad_top + RULE_WEIGHT - 1], fill=0)
+    y = pad_top + RULE_WEIGHT + gap
+    draw.rectangle([SIDE_MARGIN, y, right, y + thin - 1], fill=0)
     return img
 
 
@@ -178,3 +200,35 @@ def stack(sections) -> Image.Image:
         composite.paste(section, (0, y))
         y += section.height
     return composite
+
+
+def render_body(text: str, size: int = 18, indent: int = 0, hang: int = 0,
+                line_spacing: int = 4, pad_top: int = 0, pad_bottom: int = 0,
+                font_path: str = FONT_REG) -> Image.Image:
+    """Wrapped text set flush left in the column.
+
+    Everything else on the receipt is centred; running instructions are not,
+    because a numbered list needs a straight left edge or the numbers do not
+    line up. `hang` indents every line after the first, so a step's text sits
+    under itself rather than under its number.
+    """
+    left = SIDE_MARGIN + indent
+    lines = wrap_to_width(text, font_path, size, 0, COLUMN - indent - hang)
+
+    rendered = []
+    for i, line in enumerate(lines):
+        x = left + (hang if i else 0)
+        img = Image.new("1", (PRINT_WIDTH, 1), 1)
+        font = ImageFont.truetype(font_path, size)
+        ascent, descent = font.getmetrics()
+        img = Image.new("1", (PRINT_WIDTH, ascent + descent), 1)
+        ImageDraw.Draw(img).text((x, 0), line, font=font, fill=0)
+        rendered.append(img)
+
+    height = sum(r.height for r in rendered) + line_spacing * (len(rendered) - 1)
+    out = Image.new("1", (PRINT_WIDTH, pad_top + height + pad_bottom), 1)
+    y = pad_top
+    for r in rendered:
+        out.paste(r, (0, y))
+        y += r.height + line_spacing
+    return out
