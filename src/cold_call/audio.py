@@ -46,6 +46,7 @@ AUDIO_DIR = ASSETS / "audio"
 # first rather than sleeping a guessed interval.
 DEVICE_FREE_TIMEOUT = 3.0
 _DEVICE_POLL = 0.02
+_VERIFY_DELAY = 0.12
 
 
 def _pcm_state(card: int) -> str | None:
@@ -124,11 +125,13 @@ class SoundPlayer:
 
     def __init__(self):
         self._proc: subprocess.Popen | None = None
+        self._loop = False
 
     def play(self, side: Side, wav_path: str | Path, loop: bool = False):
         """Start playing a WAV file. Stops any currently playing sound first."""
         self.stop()
         path = str(wav_path)
+        self._loop = loop
 
         def _preexec():
             os.setpgrp()  # new process group so we can kill the whole tree
@@ -160,6 +163,32 @@ class SoundPlayer:
                 stderr=subprocess.DEVNULL,
                 preexec_fn=_preexec,
             )
+
+        self._verify(side, path)
+
+    def _verify(self, side: Side, path: str):
+        """Warn if playback died on open. A failed open is otherwise silent.
+
+        aplay's stderr is discarded to keep the journal clean, and in loop mode
+        `_proc` is the wrapping shell — it survives its aplay, so `is_playing()`
+        alone cannot tell playing from silent.
+        """
+        time.sleep(_VERIFY_DELAY)
+        name = Path(path).name
+        if self._proc is None:
+            return
+        rc = self._proc.poll()
+        if not self._loop:
+            if rc is not None and rc != 0:
+                print(f"  WARNING: playback failed on card {side.card} "
+                      f"({name}, aplay rc={rc})")
+            return
+        if rc is not None:
+            print(f"  WARNING: loop playback exited on card {side.card} "
+                  f"({name}, rc={rc})")
+        elif _pcm_state(side.card) == "closed":
+            print(f"  WARNING: loop playback silent on card {side.card} "
+                  f"({name}) — device never opened")
 
     def stop(self):
         """Stop the current sound if playing."""
