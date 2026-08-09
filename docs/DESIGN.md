@@ -122,7 +122,13 @@ the finest stroke in the asset survives the downscale.
 **The small seal is the printed one.** 288px. The 576px variant is a fallback.
 
 **Artwork is trimmed to its own edges** before scaling, so framing is set by
-the layout and not by the exporter.
+the layout and not by the exporter. Seals only — the worksheets keep the
+whitespace they were drawn with.
+
+**The space above a worksheet is the author's, not residue.** Several
+worksheets carry a large blank band at the top. It is deliberate, it is left
+alone, and nothing in the layout should close it up. It is the largest gap on
+the receipt by design.
 
 ## Provenance
 
@@ -138,7 +144,5 @@ rewritten.
    tradition; the questions run to 95 characters, which is long for caps.
 2. Whether 40px is the right question size. It is what the column and the
    measure currently settle on, not a figure anyone chose.
-3. Whether the worksheets' baked-in top whitespace is design or export
-   residue, and whether to trim it.
-4. What governs receipt length. Nothing currently limits how long a dispatch
+3. What governs receipt length. Nothing currently limits how long a dispatch
    may run beyond the raster ceiling.
