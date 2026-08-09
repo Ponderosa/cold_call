@@ -41,6 +41,31 @@ ASSETS = Path(__file__).resolve().parent.parent.parent / "assets"
 AUDIO_DIR = ASSETS / "audio"
 
 
+def wav_data_offset(path: str | Path) -> int:
+    """Byte offset of a WAV's data chunk.
+
+    Not every asset has the canonical 44-byte header — files written by some
+    editors carry a LIST/INFO chunk first (78 bytes). Assuming 44 would feed
+    chunk metadata to the decoder as PCM and, because the extra 34 bytes are
+    an odd number of samples, swap the stereo channels for the whole file.
+    """
+    try:
+        with open(path, "rb") as f:
+            head = f.read(4096)
+        if head[:4] != b"RIFF" or head[8:12] != b"WAVE":
+            return 44
+        pos = 12
+        while pos + 8 <= len(head):
+            cid = head[pos:pos + 4]
+            size = int.from_bytes(head[pos + 4:pos + 8], "little")
+            if cid == b"data":
+                return pos + 8
+            pos += 8 + size + (size & 1)
+    except OSError:
+        pass
+    return 44
+
+
 def setup_mixer(side: Side):
     """Configure POP Phone mixer levels for a side."""
     card = side.card
@@ -78,10 +103,11 @@ class SoundPlayer:
             _set_pdeathsig()
 
         if loop:
-            # Loop raw PCM: strip 44-byte WAV header, play as raw so aplay
-            # doesn't stop at the WAV-declared length
+            # Loop raw PCM: skip the header, play as raw so aplay doesn't stop
+            # at the WAV-declared length.
+            skip = wav_data_offset(path)
             cmd = (
-                f"while true; do tail -c +45 '{path}'; done "
+                f"while true; do tail -c +{skip + 1} '{path}'; done "
                 f"| aplay -D plughw:{side.card},0 -c 2 -r {RATE} -f {FORMAT} -t raw"
                 f" --buffer-size {BUFFER} --period-size {PERIOD}"
             )
@@ -135,10 +161,15 @@ CHUNK = 1024 * 4  # period_size * frame_size (2ch * 2bytes)
 
 music_path = sys.argv[1]
 music_vol = float(sys.argv[2])
+music_offset = int(sys.argv[3])
 
 with open(music_path, 'rb') as f:
-    f.read(44)  # skip WAV header
+    f.seek(music_offset)  # start of the data chunk, located by the parent
     music_data = f.read()
+
+# Guard the stereo framing: a half-frame start would swap L/R for the
+# whole track, and a ragged tail would swap them at every loop point.
+music_data = music_data[:len(music_data) - (len(music_data) % 4)]
 
 music_pos = 0
 
@@ -226,7 +257,8 @@ class CrossRoute:
             if music_path:
                 mixer = subprocess.Popen(
                     [sys.executable, "-c", _MIXER_CODE,
-                     str(music_path), str(music_volume)],
+                     str(music_path), str(music_volume),
+                     str(wav_data_offset(music_path))],
                     stdin=rec.stdout, stdout=subprocess.PIPE,
                     stderr=subprocess.DEVNULL,
                     preexec_fn=_set_pdeathsig,
