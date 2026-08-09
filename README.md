@@ -1,8 +1,8 @@
 # Cold Calls
 
-A participatory art installation for **SAM Remix 2026** by [Seattle Design Nerds](https://www.seattledesignnerds.com/).
+A participatory art installation for **Seattle Design Festival 2026** by [Seattle Design Nerds](https://www.seattledesignnerds.com/).
 
-Two strangers pick up surreal phone handsets on opposite sides of an easel and talk to each other. Thermal receipt printers give them conversation prompts. They "record" responses with stamps, stickers, and tape — no writing utensils. It's framed as an outreach effort from the fictional *Bureau of Ambient Belonging*.
+Two strangers pick up surreal phone handsets on opposite sides of an easel and talk to each other. Thermal receipt printers give them conversation prompts. They "record" responses with stamps, stickers, and tape — no writing utensils. It's framed as fieldwork for the fictional *Seattle Municipal Office of Social Climate*, which contracts six sub-agencies — one per side of each easel.
 
 ## Stations
 

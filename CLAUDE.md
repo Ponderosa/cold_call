@@ -2,7 +2,7 @@
 
 ## What Is This
 
-**Cold Calls** is a participatory art installation for SAM Remix 2026 by Seattle Design Nerds. Two strangers pick up surreal phone handsets on opposite sides of an easel and talk to each other. Thermal receipt printers prompt them with conversation topics. They "record" responses with stamps, stickers, and tape — no writing utensils. It's framed as an outreach effort from the fictional *Bureau of Ambient Belonging*.
+**Cold Calls** is a participatory art installation for Seattle Design Festival 2026 by Seattle Design Nerds. Two strangers pick up surreal phone handsets on opposite sides of an easel and talk to each other. Thermal receipt printers prompt them with conversation topics. They "record" responses with stamps, stickers, and tape — no writing utensils. It's framed as fieldwork for the fictional *Seattle Municipal Office of Social Climate*, which contracts six sub-agencies — one per side of each easel.
 
 This repo controls **one easel station** (1 Raspberry Pi 4). Same codebase deploys to all three stations.
 
