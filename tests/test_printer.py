@@ -7,8 +7,8 @@ import struct
 from PIL import Image
 _log.info("test_printer.py: importing cold_call.printer (triggers escpos + Pillow)...")
 from cold_call.printer import (
-    _render_text, _render_separator, _wrap_prompt, _compose_dispatch,
-    _print_raster, PRINT_WIDTH, FONT_REG, FONT_BOLD,
+    _render_text, _render_separator, _wrap_to_width, _compose_dispatch,
+    _print_raster, PRINT_WIDTH, SIDE_MARGIN, FONT_REG, FONT_BOLD,
 )
 _log.info("test_printer.py: imports complete")
 
@@ -38,24 +38,65 @@ def test_render_separator():
     assert img.mode == "1"
 
 
-def test_wrap_prompt_short():
-    assert _wrap_prompt("Hello") == ["Hello"]
+def test_wrap_to_width_fits_on_one_line():
+    line = _wrap_to_width("Hello", FONT_BOLD, 40, 0, PRINT_WIDTH)
+    assert line == ["Hello"]
 
 
-def test_wrap_prompt_long():
-    lines = _wrap_prompt("What is the meaning of life and everything else")
-    assert all(len(line) <= 18 for line in lines)
+def test_wrap_to_width_breaks_when_too_wide():
+    lines = _wrap_to_width(
+        "What is the meaning of life and everything else besides",
+        FONT_BOLD, 40, 0, PRINT_WIDTH - 2 * SIDE_MARGIN,
+    )
     assert len(lines) > 1
+    assert " ".join(lines).split() == (
+        "What is the meaning of life and everything else besides".split()
+    )
 
 
-def test_wrap_prompt_single_long_word():
-    lines = _wrap_prompt("Supercalifragilisticexpialidocious")
+def test_wrap_to_width_keeps_every_line_inside_the_column():
+    """The whole point — no line may exceed the measure it was given."""
+    from PIL import Image, ImageDraw, ImageFont
+
+    max_width = PRINT_WIDTH - 2 * SIDE_MARGIN
+    font = ImageFont.truetype(FONT_BOLD, 40)
+    draw = ImageDraw.Draw(Image.new("1", (1, 1)))
+
+    for line in _wrap_to_width(
+        "What is something you recently could not bring yourself to care about",
+        FONT_BOLD, 40, 0, max_width,
+    ):
+        assert draw.textlength(line, font=font) <= max_width
+
+
+def test_wrap_to_width_cannot_break_a_single_word():
+    """An unbreakable word overflows rather than being silently truncated."""
+    lines = _wrap_to_width("Supercalifragilisticexpialidocious", FONT_BOLD, 40,
+                           0, PRINT_WIDTH - 2 * SIDE_MARGIN)
     assert lines == ["Supercalifragilisticexpialidocious"]
 
 
-def test_wrap_prompt_exact_fit():
-    lines = _wrap_prompt("123456789012345678", max_chars=18)
-    assert lines == ["123456789012345678"]
+def test_wrap_to_width_balances_the_rag():
+    """Greedy packs early lines full and leaves a stub; the rag is evened up.
+
+    Greedy on this question gives widths 480/336/168/336 — a stub third line
+    under two full ones. Balancing spreads the same words over the same
+    number of lines.
+    """
+    from PIL import Image, ImageDraw, ImageFont
+
+    text = "What group chats are you lurking in without participating?"
+    max_width = PRINT_WIDTH - 2 * SIDE_MARGIN
+    lines = _wrap_to_width(text, FONT_BOLD, 40, 0, max_width)
+
+    font = ImageFont.truetype(FONT_BOLD, 40)
+    draw = ImageDraw.Draw(Image.new("1", (1, 1)))
+    widths = [draw.textlength(line, font=font) for line in lines]
+
+    assert " ".join(lines).split() == text.split(), "words were lost or reordered"
+    assert all(w <= max_width for w in widths)
+    # No line except the last may be less than half the widest.
+    assert min(widths[:-1]) > max(widths) * 0.5
 
 
 def test_compose_dispatch_returns_image():

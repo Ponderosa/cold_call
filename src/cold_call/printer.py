@@ -21,6 +21,7 @@ import yaml
 
 PRINT_WIDTH = 576  # 80mm at 203dpi (~72mm printable)
 TOP_MARGIN = 64    # 8mm of leader, also part of the cut clearance
+SIDE_MARGIN = 25   # 4.3% of width, matching the designers' worksheets
 FEED_LINES = 2     # ~8.5mm at 1/6" per line — the rest of the clearance
 
 # A 2400px dispatch (172,800 raster bytes in one GS v 0) desynced both
@@ -212,8 +213,13 @@ class PrinterConnection:
 
 
 def _render_text(lines, font_path=FONT_REG, size=24, align="center",
-                 line_spacing=8, pad_top=0, pad_bottom=0):
-    """Render lines of text to a 1-bit image at PRINT_WIDTH."""
+                 line_spacing=8, pad_top=0, pad_bottom=0, tracking=0):
+    """Render lines of text to a 1-bit image at PRINT_WIDTH.
+
+    `tracking` adds space between letters, in pixels. Tracked caps read as
+    stamped rather than typed, so it is used on the header and identity lines
+    and left at zero for running text.
+    """
     font = ImageFont.truetype(font_path, size)
     ascent, descent = font.getmetrics()
     line_h = ascent + descent
@@ -224,40 +230,115 @@ def _render_text(lines, font_path=FONT_REG, size=24, align="center",
 
     y = pad_top
     for line in lines:
-        bbox = draw.textbbox((0, 0), line, font=font)
-        tw = bbox[2] - bbox[0]
+        if tracking:
+            widths = [draw.textlength(ch, font=font) for ch in line]
+            tw = sum(widths) + tracking * (len(line) - 1)
+        else:
+            bbox = draw.textbbox((0, 0), line, font=font)
+            tw = bbox[2] - bbox[0]
+
         if align == "center":
             x = (PRINT_WIDTH - tw) // 2
         elif align == "right":
             x = PRINT_WIDTH - tw
         else:
             x = 0
-        draw.text((x, y), line, font=font, fill=0)
+
+        if tracking:
+            # Letters are placed one at a time, so the trailing space after the
+            # last character is not counted into the centring above.
+            for ch, w in zip(line, widths):
+                draw.text((x, y), ch, font=font, fill=0)
+                x += w + tracking
+        else:
+            draw.text((x, y), line, font=font, fill=0)
         y += line_h + line_spacing
 
     return img
 
 
-def _render_separator(char="-", count=32):
-    return _render_text([char * count], size=20, pad_top=4, pad_bottom=4)
+def _wrap_to_width(text: str, font_path: str, size: int, tracking: int,
+                   max_width: int) -> list[str]:
+    """Break a line onto as few lines as fit the column, balanced.
 
+    Measured against the font rather than counted in characters, so the
+    measure stays correct if the face changes and so tracking is accounted
+    for. Long agency names wrap the way they do on the seals themselves — the
+    department is named on two lines rather than set smaller than its
+    neighbours.
+    """
+    font = ImageFont.truetype(font_path, size)
+    draw = ImageDraw.Draw(Image.new("1", (1, 1)))
 
-def _wrap_prompt(text: str, max_chars: int = 18) -> list[str]:
-    """Word-wrap a prompt string into lines that fit the bold print size."""
+    def width(s: str) -> float:
+        return sum(draw.textlength(c, font=font) for c in s) + tracking * (len(s) - 1)
+
+    if width(text) <= max_width:
+        return [text]
+
     words = text.split()
-    lines = []
-    current = ""
+
+    # Greedy fill settles how few lines the text can occupy.
+    lines, current = [], ""
     for word in words:
-        test = f"{current} {word}".strip()
-        if len(test) <= max_chars:
-            current = test
-        else:
-            if current:
-                lines.append(current)
+        candidate = f"{current} {word}".strip()
+        if current and width(candidate) > max_width:
+            lines.append(current)
             current = word
+        else:
+            current = candidate
     if current:
         lines.append(current)
-    return lines
+
+    if len(lines) < 2:
+        return lines
+
+    # Greedy packs early lines full and leaves a stub, which on centred display
+    # type reads as an accident. Redistribute over the same number of lines,
+    # minimising the squared slack so the rag is even. Breaks are chosen by
+    # dynamic programming over word positions.
+    target = len(lines)
+    n = len(words)
+    widths = [[None] * (n + 1) for _ in range(n)]
+    for i in range(n):
+        for j in range(i + 1, n + 1):
+            w = width(" ".join(words[i:j]))
+            widths[i][j] = w if w <= max_width else None
+
+    INF = float("inf")
+    # best[i][k] — least cost to set words[i:] on exactly k lines.
+    best = [[INF] * (target + 1) for _ in range(n + 1)]
+    choice = [[None] * (target + 1) for _ in range(n + 1)]
+    best[n][0] = 0.0
+    for i in range(n - 1, -1, -1):
+        for k in range(1, target + 1):
+            for j in range(i + 1, n + 1):
+                w = widths[i][j]
+                if w is None:
+                    break
+                rest = best[j][k - 1]
+                if rest == INF:
+                    continue
+                # The last line is allowed to be short without penalty.
+                slack = 0.0 if k == 1 else (max_width - w) ** 2
+                cost = slack + rest
+                if cost < best[i][k]:
+                    best[i][k] = cost
+                    choice[i][k] = j
+
+    if best[0][target] == INF:
+        return lines
+
+    balanced, i, k = [], 0, target
+    while k:
+        j = choice[i][k]
+        balanced.append(" ".join(words[i:j]))
+        i, k = j, k - 1
+    return balanced
+
+
+def _render_separator(char="-", count=32):
+    return _render_text([char * count], size=20, pad_top=4, pad_bottom=4)
 
 
 def _compose_parts(prompt: str, theme: str = "apathy",
@@ -307,18 +388,22 @@ def _compose_parts(prompt: str, theme: str = "apathy",
         form_line = f"{form_id}-{dispatch_num:04d}  |  Priority: {priority}"
     else:
         form_line = f"Form {dispatch_num:04d}  |  Priority: {priority}"
-    sections.append(_render_text(["APPROVED DIALOGUE"], font_path=FONT_BOLD, size=28,
-                                  pad_top=16, pad_bottom=4))
+    sections.append(_render_text(["APPROVED DIALOGUE"], font_path=FONT_BOLD,
+                                  size=28, pad_top=16, pad_bottom=4))
     sections.append(_render_text([form_line], size=18, pad_bottom=12))
 
     # Separator
     sections.append(_render_separator())
 
     # Department identity
-    sections.append(_render_text([dept_name.upper()], font_path=FONT_BOLD, size=20,
-                                  pad_top=12, pad_bottom=4))
+    name_lines = _wrap_to_width(dept_name.upper(), FONT_BOLD, 20, 2,
+                                PRINT_WIDTH - 2 * SIDE_MARGIN)
+    sections.append(_render_text(name_lines, font_path=FONT_BOLD,
+                                  size=20, line_spacing=2, pad_top=12,
+                                  pad_bottom=4))
     if tagline:
-        sections.append(_render_text([f'"{tagline}"'], size=16, pad_bottom=4))
+        sections.append(_render_text([f'"{tagline}"'], font_path=FONT_REG,
+                                     size=16, pad_bottom=4))
     else:
         sections.append(Image.new("1", (PRINT_WIDTH, 4), 1))
 
@@ -326,7 +411,10 @@ def _compose_parts(prompt: str, theme: str = "apathy",
     sections.append(_render_separator())
 
     # Question
-    question_lines = _wrap_prompt(prompt, max_chars=14)
+    # Wrapped by measured width, not character count — the face is
+    # proportional, so counting characters gives a ragged, accidental measure.
+    question_lines = _wrap_to_width(prompt, FONT_BOLD, 40, 0,
+                                    PRINT_WIDTH - 2 * SIDE_MARGIN)
     sections.append(Image.new("1", (PRINT_WIDTH, 24), 1))
     for line in question_lines:
         sections.append(_render_text([line], font_path=FONT_BOLD, size=40,
